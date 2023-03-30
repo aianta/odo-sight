@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Odo Sight",
+    "version": "0.1",
+    "description": "Loads LogUI, dom-effects.js and provides additional supporting functionality for odo bot to map out an application.",
+    "content_scripts": [
+        {
+            "matches": ["*://localhost/*"],
+            "js": ["scripts/globalThis.js", "scripts/logUIConfig.js", "libs/dom-effects.js", "libs/logui.bundle.js","scripts/main.js"]
+        }
+    ],
+    "permissions": ["storage"],
+    "devtools_page": "devtools.html",
+    "background":{
+        "scripts": ["/scripts/background.js"]
+    }
+}
