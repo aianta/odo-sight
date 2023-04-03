@@ -35,7 +35,13 @@ browser.devtools.network.onRequestFinished.addListener((record)=>{
 
         for (const [key, value] of Object.entries(record)){
             if(_fields.includes(key)){
-                eventDetails[key] = value
+                
+                if(typeof value === 'object'){
+                    eventDetails[key] = JSON.stringify(value)
+                }else{
+                    eventDetails[key] = value
+                }
+
             }
         }
 

@@ -1,7 +1,7 @@
 _odo_sight_LogUI_config = {
     logUIConfiguration: {
         endpoint: 'ws://localhost:8000/ws/endpoint/',
-        authorisationToken: 'eyJ0eXBlIjoibG9nVUktYXV0aG9yaXNhdGlvbi1vYmplY3QiLCJhcHBsaWNhdGlvbklEIjoiMWViZjRiYTEtMTc4My00OThiLTk2YzctNGFkZGMzODNiNjIwIiwiZmxpZ2h0SUQiOiJiMTY5ZmIzMC03ZWIyLTQ0MjMtYTAzNS03ZjA3YzhlYTAxMTQifQ:1phvQT:ov8NG4-Nqpf0SgYvVa87FaRHuaSdzuCThEkHwrHp_v4',
+        authorisationToken: 'eyJ0eXBlIjoibG9nVUktYXV0aG9yaXNhdGlvbi1vYmplY3QiLCJhcHBsaWNhdGlvbklEIjoiMWViZjRiYTEtMTc4My00OThiLTk2YzctNGFkZGMzODNiNjIwIiwiZmxpZ2h0SUQiOiJlMzE0OTIwMi1iZmEzLTQzMDEtYWNhNy0wYTNiMDNiNGIwNmMifQ:1pjMz6:5BU7HRG6xDuhN1ShAetEPywwjgNqU3VFZBOwA4J60N0',
         verbose: true
     },
     applicationSpecificData: {
