@@ -1,0 +1,5 @@
+_LOG_UI_SERVER_HOST = "localhost:8000"
+_LOG_UI_JWT_PATH = "/api/user/auth/"
+_LOG_UI_APP_LIST_PATH = "/api/application/list/"
+_LOG_UI_DEFAULT_USERNAME = "aianta"
+_LOG_UI_DEFAULT_PASSWORD = "01134hello"
