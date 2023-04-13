@@ -6,6 +6,18 @@ function isEmptyObject(obj){
         && Object.getPrototypeOf(obj) === Object.prototype
 }
 
+getSelectedFlight = function(){
+    return browser.storage.local.get("selected_flight").then(
+        function(response){
+            if(!isEmptyObject(response && response.selected_flight !== undefined)){
+                return Promise.resolve(response.selected_flight)
+            }else{
+                return Promise.reject("No selected_flight value exists in local storage")
+            }
+        }
+    )
+}
+
 getLocalJWT = function(){
     return browser.storage.local.get("logui_jwt").then(
         function(response){

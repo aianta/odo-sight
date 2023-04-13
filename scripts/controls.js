@@ -1,5 +1,31 @@
 console.log('controls.js says hi')
 
+$('#new-flight-btn').click(function(event){
+    console.log('new flight button handler got: ', event)
+    let btn = event.delegateTarget
+    let appId = btn.getAttribute('app-id')
+    let flightName = $('#new-flight-name').val()
+    sendToBackgroundJs({
+        type: 'CREATE_FLIGHT',
+        appId: appId,
+        flightName: flightName,
+        flightDomain: _DEFAULT_FLIGHT_DOMAIN
+    }, function(response){
+        console.log('new-flight-button handler got 2: ', response)
+
+        sendToBackgroundJs({
+            type: 'GET_FLIGHT_LIST',
+            appId: appId
+        }, function(flights){
+            console.log('new-flight-button handler got 3: ', flights)
+            let createdFlight = flights.find(flight=>flight.name === flightName)
+            console.log('created flight', createdFlight)
+            browser.storage.local.set({selected_flight: createdFlight})
+            backToMainFrame()
+        })
+    })
+})
+
 //TODO: someday it may be prudent to store JWT tokens in IndexedDb...
 globalThis.getLocalJWT = getLocalJWT
 
@@ -39,6 +65,26 @@ function JWTTokenHandler(response){
 function AppListHandler(response){
     console.log("Got application list: ", response)
 
+    response.forEach( function (app,index){
+        let app_entry = $(`
+        <div index=${index} id='${app.id}' class='app-entry'>
+        <span class="app-name">${app.name}</span>
+        
+        <span id='${app.id}-select'></span>
+        </div>`)
+
+        $('#app-list').append(app_entry)
+        $(`#${app.id}-select`).button({
+            icon: 'fa-solid fa-arrow-right'
+        }).click( function(event){
+            sendToBackgroundJs({
+                type: 'GET_FLIGHT_LIST',
+                appId: app.id
+            }, function(response){
+                startFlightSelect(app, response)
+            })
+        })
+    })
 }
 
 function genericErrorHandler(err){

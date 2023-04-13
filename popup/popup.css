@@ -21,3 +21,44 @@
 .visible{
     display: block;
 }
+
+.app-entry{
+    background-color: aquamarine;
+    display: flex;
+    justify-content: space-between;
+}
+
+
+.flight-entry:hover{
+    background-color: aquamarine;
+}
+
+.flight-entry{
+    display: flex;
+    justify-content: space-between;
+    margin-bottom:5px;
+}
+
+.flight-name{
+    margin-right:5px
+}
+
+#flight-select-frame{
+    position: relative;
+}
+
+.flight-frame-header{
+    position: sticky;
+    top: 0;
+    background-color: white;
+    z-index: 1000
+}
+
+#flight_id{
+    margin-right: 5px
+}
+
+.flight-stats{
+    margin-bottom: 5px;
+    margin-right: 5px;
+}

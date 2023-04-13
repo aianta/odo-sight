@@ -108,6 +108,14 @@ function handleControlRequest(data, sender, sendResponse){
             return getLogUIAppList().then(function(response){
                 return Promise.resolve(response.data)
             })
+        case "GET_FLIGHT_LIST":
+            return getFlightList(data.appId).then(function(response){
+                return Promise.resolve(response.data)
+            })
+        case "CREATE_FLIGHT":
+            return createFlight(data.appId, data.flightName, data.flightDomain).then(function(response){
+                return Promise.resolve(response.data)
+            })
         }
 
 }
@@ -144,6 +152,28 @@ function getLogUIAppList(){
             console.error("Error fetching application list: ", err)
             return Promise.reject(err)
         })
+}
+
+function getFlightList(appId){
+    return axios.get(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_LIST_PATH}${appId}/`)
+        .then(function(response){
+            return Promise.resolve(response)
+        }).catch(function(err){
+            console.error("Error fetching flight list: ", err)
+            return Promise.reject(err)
+        })
+}
+
+function createFlight(appId, flightName, flightDomain){
+    return axios.post(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE}${appId}/add/`,{
+        flightName: flightName,
+        fqdn: flightDomain
+    }).then(function(response){
+        return Promise.resolve(response)
+    }).catch(function(err){
+        console.error("Error creating flight: ", err)
+        return Promise.reject(err)
+    })
 }
 
 //Inject auth token for LogUI Server requests

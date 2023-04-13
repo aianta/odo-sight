@@ -7,21 +7,35 @@
     <link rel="stylesheet" href="/libs/jquery-ui.min.css">
   </head>
 
-<body>
+<body style="min-width: 400px;">
     <!-- <h1>Odo Sight</h1> -->
     <div id="flight-select-frame">
-      <span id="flight-back-btn"></span>
+      <div class="flight-frame-header">
+        <span id="flight-back-btn"></span>
+        <h2 id="flight-app-name"></h2>
+        <div class="flight-entry">
+          <input id="new-flight-name">
+          <span id="new-flight-btn"></span>
+        </div>
+      </div>
+
+      <div id="flight-list">
+
+      </div>
     </div>
     <div id="app-select-frame">
       <span id="app-back-btn"></span>
-      <div>
+      <div id="app-list">
         <h2>Applications</h2>
-        <div>App 1</div>
       </div>
     </div>
     <div id="main-frame">
       <div>
         <h2>Status</h2>
+        <div>
+          <span><i id="logui-server-status" class="fa-solid fa-circle"></i></span>
+          LogUI Server Connection
+        </div>
         <div>
           <span><i id="logui-status" class="fa-solid fa-circle"></i></span>
           logui.bundle.js Loaded
@@ -37,14 +51,17 @@
       </div>
       <div>
         <h2>Stats</h2>
-        <div>
+        <div class="flight-stats">
           FlightID:<span id="flight_id">[dummy value]</span><span id="edit_flight_btn"></span>
+        </div>
+        <div class="flight-stats">
+          Flight Name:<span id="flight_name">[dummy value]</span>
         </div>
         <div>
           SessionID:<span id="session_id">[dummy value]</span>
         </div>
         <div>
-          # of events: <span id="event_count">47</span>
+          Events sent recently: <span id="event_count">0</span>
         </div>
       </div>
       <div>
