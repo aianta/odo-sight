@@ -1,0 +1,23 @@
+* {
+    font-family:  Arial, sans-serif;
+}
+
+.green {
+    color: green
+}
+
+.red {
+    color: red
+}
+
+.orange {
+    color: orange
+}
+
+.hidden{
+    display: none;
+}
+
+.visible{
+    display: block;
+}

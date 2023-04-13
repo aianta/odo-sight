@@ -3,14 +3,63 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="popup.css"/>
+    <link rel="stylesheet" href="/popup/popup.css"/>
+    <link rel="stylesheet" href="/libs/jquery-ui.min.css">
   </head>
 
 <body>
-    <h1>Odo Sight</h1>
+    <!-- <h1>Odo Sight</h1> -->
+    <div id="flight-select-frame">
+      <span id="flight-back-btn"></span>
+    </div>
+    <div id="app-select-frame">
+      <span id="app-back-btn"></span>
+      <div>
+        <h2>Applications</h2>
+        <div>App 1</div>
+      </div>
+    </div>
+    <div id="main-frame">
+      <div>
+        <h2>Status</h2>
+        <div>
+          <span><i id="logui-status" class="fa-solid fa-circle"></i></span>
+          logui.bundle.js Loaded
+        </div>
+        <div>
+          <span><i id="dom-effects-status" class="fa-solid fa-circle"></i></span>
+          dom-effects.js Loaded
+        </div>
+        <div>
+          <span><i id="network-events-status" class="fa-solid fa-circle"></i></span>
+          Network requests
+        </div>
+      </div>
+      <div>
+        <h2>Stats</h2>
+        <div>
+          FlightID:<span id="flight_id">[dummy value]</span><span id="edit_flight_btn"></span>
+        </div>
+        <div>
+          SessionID:<span id="session_id">[dummy value]</span>
+        </div>
+        <div>
+          # of events: <span id="event_count">47</span>
+        </div>
+      </div>
+      <div>
+        <h2 id="scrape_mongo_btn">Scrape Mongo</h2>
+      </div>
+    </div>
+    
     <script src="/scripts/globalThis.js"></script>
+    <script scr="/libs/raf-ff-fix.js"></script>
+    <script src="/libs/fontawesome.js"></script>
+    <script src="/libs/jquery-3.6.4.min.js"></script>
+    <script src="/libs/jquery-ui.min.js"></script>
     <script src="/scripts/utils.js"></script>
     <script src="/scripts/constants.js"></script>
+    <script src="./controls-ui.js"></script>
     <script src="/scripts/controls.js"></script>
 </body>
 </html>

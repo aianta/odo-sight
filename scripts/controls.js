@@ -1,3 +1,5 @@
+console.log('controls.js says hi')
+
 //TODO: someday it may be prudent to store JWT tokens in IndexedDb...
 globalThis.getLocalJWT = getLocalJWT
 
@@ -5,6 +7,7 @@ globalThis.getLocalJWT = getLocalJWT
 let port = browser.runtime.connect({name:"port-from-controls"})
 let messageMap = new Map()
 
+setStatus('logui-status', 'green')
 /**
  * Wrapper function that adds a uuid to messages sent to background.js 
  * @param {*} data 
@@ -28,7 +31,7 @@ port.onMessage.addListener(handleBackgroundJsMsg)
 
 //Handlers
 
-function JWTTokenHanlder(response){
+function JWTTokenHandler(response){
     console.log("Got response from LogUI server:", response)        
     browser.storage.local.set({logui_jwt: response.token})
 }
@@ -63,7 +66,7 @@ function start(){
                 type:"GET_JWT_TOKEN",
                 username: _LOG_UI_DEFAULT_USERNAME,
                 password: _LOG_UI_DEFAULT_PASSWORD
-            }, JWTTokenHanlder)
+            }, JWTTokenHandler)
         }
     )
 }
