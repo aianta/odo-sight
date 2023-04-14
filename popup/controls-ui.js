@@ -32,6 +32,17 @@ getSelectedFlight().then(function(selected_flight){
     $('#flight_name').text(selected_flight.name)
 })
 
+
+function showError(msg){
+    $('#error-container').removeClass('hidden').addClass('visible')
+    $('#error-msg').text(msg)
+}
+
+function clearError(){
+    $('#error-msg').text('')
+    $('#error-container').addClass('hidden').removeClass('visible')
+}
+
 /**
  * 
  * @param {*} statusLabel 'logui-status', 'dom-effects-status', or 'network-events-status'

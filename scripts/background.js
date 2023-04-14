@@ -41,6 +41,12 @@ function connected(p){
             result._id = _id //Inject the message id in response
             console.log("background.js is responding with: ", result)
             controlsPort.postMessage(result)
+        }).catch(err=>{
+            let payload = {
+                err_msg: err,
+                _id: _id
+            }
+            controlsPort.postMessage(payload)
         })
     })
 }
@@ -116,11 +122,31 @@ function handleControlRequest(data, sender, sendResponse){
             return createFlight(data.appId, data.flightName, data.flightDomain).then(function(response){
                 return Promise.resolve(response.data)
             })
+        case "SCRAPE_MONGO":
+            return scrapeMongo()
         }
 
 }
 
 //AXIOS requests
+
+function scrapeMongo(){
+    return getSelectedFlight()
+    .catch(function(err){
+        return Promise.reject("No selected flight, cannot scrape!")
+    })
+    .then(function(flight){
+        return axios.post(`http://${_ODO_BOT_SIGHT_SERVER_HOST}${_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH}`, {
+            flightName: flight.name,
+            flightId: flight.id
+        }).then(function(response){
+            return Promise.resolve({
+                statusCode: response.status
+            })
+        })
+    })
+}
+
 
 /**
  * Fetches a JWT from the LogUI server.

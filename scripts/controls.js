@@ -1,5 +1,33 @@
 console.log('controls.js says hi')
 
+
+$('#scrape_mongo_btn').click(function(event){
+    sendToBackgroundJs({
+        type:'SCRAPE_MONGO'
+    }, function(response){
+        
+        if (response.err_msg !== undefined){
+            showError(response.err_msg)
+
+            $('#scrape-error').addClass('visible')
+            setTimeout(()=>{
+                $('#scrape-error').removeClass('visible').addClass('hidden')
+            }, 5000)
+        
+        }else{
+            $('#scrape-ok').addClass('visible')
+            setTimeout(()=>{
+                $('#scrape-ok').removeClass('visible').addClass('hidden')
+            }, 5000)
+        }
+
+
+    })
+})
+
+/**
+ * Setup logic for creating new flights
+ */
 $('#new-flight-btn').click(function(event){
     console.log('new flight button handler got: ', event)
     let btn = event.delegateTarget
