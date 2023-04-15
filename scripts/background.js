@@ -21,35 +21,70 @@
  * exist. It is used to communicate with the LogUI server and facilitate quality of 
  * life functionality. 
  * 
- * Unlike flows 1. & 2. flow 3. is facilitated by an ongoing connection between 
- * controls.html and background.js. This is managed through the browser.runtime.onConnect listener
+ * 4. [Content Scripts]<->background.js<->[controls.html]: Used to communicate flight auth tokens and 
+ * relay commands from controls.html
+ * 
+ * Unlike flows 1. & 2. flow 3 & 4. is facilitated by ongoing connections between 
+ * sender and recipient. This is managed through the browser.runtime.onConnect listener
  * 
  */
 
 
 console.log("backround.js says hi, axios?")
 
-//Setup communication with controls.html
+//Setup communication with controls.html & content scripts
 let controlsPort;
+let contentScriptsPort;
 
 function connected(p){
-    controlsPort = p;
-    controlsPort.onMessage.addListener((data)=>{
-        console.log("background.js got message from controls.html")
-        let _id = data._id //Extract the message id
-        handleControlRequest(data).then(function(result){
-            result._id = _id //Inject the message id in response
-            console.log("background.js is responding with: ", result)
-            controlsPort.postMessage(result)
+    console.log('connected port:', p)
+    switch(p.name){
+        case CONTROLS_TO_BACKGROUND_PORT_NAME:
+            controlsPort = p;
+            setupPortHandler(controlsPort, handleControlRequest)
+            break;
+        case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
+            contentScriptsPort = p;
+            setupPortHandler(contentScriptsPort, handleContentScriptRequest)
+            break;
+    }
+}
+
+
+/**
+ * Communication layer logic: 
+ * Saves message _id's and invokes the given logic handler.
+ * Logic handler is expected to return a promise. 
+ * 
+ * If the logic handler's promise completes, injects the original message's _id
+ * into the response and sends it back on the port it was recieved on. 
+ * 
+ * If the logic handler's promise fails, creates an error object which also includes
+ * the original message's _id and sends the error object back on the port it was recieved on.
+ * 
+ */
+function setupPortHandler(port, logicHandler){
+    port.onMessage.addListener((data)=>{
+        console.debug(`[PORT:${port.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
+        let _id = data._id //Extract message id
+        logicHandler(data).then(function(result){
+            //Handle successfully logic handler result.
+            result._id = _id
+            console.debug(`[PORT:${port.name}][RESPONSE:${result._id}] ${JSON.stringify(result, null, 4)}`)
+            port.postMessage(result)
         }).catch(err=>{
-            let payload = {
-                err_msg: err,
-                _id: _id
+            //Handle logic handler error/failure
+            error_object = {
+                _id:_id,
+                err_msg: err
             }
-            controlsPort.postMessage(payload)
+            console.debug(`[PORT:${port.name}][RESPONSE:${error_object._id}] ${JSON.stringify(error_object, null, 4)}`)
+            port.postMessage(error_object)
         })
     })
 }
+
+
 
 browser.runtime.onConnect.addListener(connected);
 
@@ -99,7 +134,12 @@ function handleNetworkEventFromDevTools(data, sender, sendResponse){
     })
 }
 
-
+function handleContentScriptRequest(data){
+    switch(data.type){
+        case "GET_FLIGHT_TOKEN":
+            return getFlightToken()
+    }
+}
 
 function handleControlRequest(data, sender, sendResponse){
 
@@ -191,7 +231,7 @@ function getFlightList(appId){
 }
 
 function createFlight(appId, flightName, flightDomain){
-    return axios.post(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE}${appId}/add/`,{
+    return axios.post(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE(appId)}`,{
         flightName: flightName,
         fqdn: flightDomain
     }).then(function(response){
@@ -199,6 +239,20 @@ function createFlight(appId, flightName, flightDomain){
     }).catch(function(err){
         console.error("Error creating flight: ", err)
         return Promise.reject(err)
+    })
+}
+
+function getFlightToken(){
+    return getSelectedFlight()
+    .catch(err=>Promise.reject("No selected flight, cannot fetch token!"))
+    .then(function(flight){
+        return axios.get(`http://${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
+        .then(function(response){
+            return Promise.resolve(response)
+        }).catch(function(error){
+            console.error("Error getting flight token: ", err)
+            return Promise.reject(err)
+        })
     })
 }
 

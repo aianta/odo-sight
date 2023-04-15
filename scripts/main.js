@@ -1,3 +1,6 @@
+
+let conn = new BackgroundConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME)
+
 // Register our tab id with our background script
 browser.runtime.sendMessage({
     _data: 'some text'
@@ -67,3 +70,10 @@ LogUI.init(_odo_sight_LogUI_config)
 
 console.log(LogUI)
 console.log("[Odo Sight] LogUI initalized.")
+
+conn.send({
+    type:'GET_FLIGHT_TOKEN'
+}, (token)=>{
+    console.log('woooooo flight token!')
+    console.log(token)
+})

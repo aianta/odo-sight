@@ -1,28 +1,30 @@
 console.log('controls.js says hi')
 
+//Set up persistent communication with background.js
+let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME)
 
+/**
+ * Handler to invoke mongo scrape procedure
+ */
 $('#scrape_mongo_btn').click(function(event){
-    sendToBackgroundJs({
+    conn.send({
         type:'SCRAPE_MONGO'
-    }, function(response){
-        
-        if (response.err_msg !== undefined){
-            showError(response.err_msg)
-
-            $('#scrape-error').addClass('visible')
-            setTimeout(()=>{
-                $('#scrape-error').removeClass('visible').addClass('hidden')
-            }, 5000)
-        
-        }else{
-            $('#scrape-ok').addClass('visible')
+    }, 
+    function(response){
+        $('#scrape-ok').addClass('visible')
             setTimeout(()=>{
                 $('#scrape-ok').removeClass('visible').addClass('hidden')
             }, 5000)
-        }
+    },
+    function(response){
+        showError(response.err_msg)
 
-
-    })
+        $('#scrape-error').addClass('visible')
+        setTimeout(()=>{
+            $('#scrape-error').removeClass('visible').addClass('hidden')
+        }, 5000)
+    }
+    )
 })
 
 /**
@@ -33,7 +35,7 @@ $('#new-flight-btn').click(function(event){
     let btn = event.delegateTarget
     let appId = btn.getAttribute('app-id')
     let flightName = $('#new-flight-name').val()
-    sendToBackgroundJs({
+    conn.send({
         type: 'CREATE_FLIGHT',
         appId: appId,
         flightName: flightName,
@@ -41,7 +43,7 @@ $('#new-flight-btn').click(function(event){
     }, function(response){
         console.log('new-flight-button handler got 2: ', response)
 
-        sendToBackgroundJs({
+        conn.send({
             type: 'GET_FLIGHT_LIST',
             appId: appId
         }, function(flights){
@@ -57,32 +59,10 @@ $('#new-flight-btn').click(function(event){
 //TODO: someday it may be prudent to store JWT tokens in IndexedDb...
 globalThis.getLocalJWT = getLocalJWT
 
-//Set up persistent communication with background.js
-let port = browser.runtime.connect({name:"port-from-controls"})
-let messageMap = new Map()
+
+
 
 setStatus('logui-status', 'green')
-/**
- * Wrapper function that adds a uuid to messages sent to background.js 
- * @param {*} data 
- */
-function sendToBackgroundJs(data, onResponse){
-    console.log("creating UUID", crypto.randomUUID())
-    data._id = crypto.randomUUID()
-    console.log("sending: ",data)
-    port.postMessage(data)
-    messageMap.set(data._id, onResponse)
-}
-
-function handleBackgroundJsMsg(msg){
-    console.debug("controls.html got message from background.js", msg)
-    //Call the handler for this msg id
-    messageMap.get(msg._id)(msg)
-    //Clear the message from the message map
-    messageMap.delete(msg._id) 
-}
-port.onMessage.addListener(handleBackgroundJsMsg)
-
 //Handlers
 
 function JWTTokenHandler(response){
@@ -105,7 +85,7 @@ function AppListHandler(response){
         $(`#${app.id}-select`).button({
             icon: 'fa-solid fa-arrow-right'
         }).click( function(event){
-            sendToBackgroundJs({
+            conn.send({
                 type: 'GET_FLIGHT_LIST',
                 appId: app.id
             }, function(response){
@@ -115,9 +95,6 @@ function AppListHandler(response){
     })
 }
 
-function genericErrorHandler(err){
-    console.error("An error has occurred! ", err)
-}
 
 console.log("LOCAL JWT", getLocalJWT)
 
@@ -129,14 +106,14 @@ function start(){
     globalThis.getLocalJWT().then(
         function(jwt){
             //If we do, proceed to fetch our application list.
-            sendToBackgroundJs({
+            conn.send({
                 type: "GET_APP_LIST"
             }, AppListHandler)
 
         },
         function(noJwt){
             //If we don't have a JWT token, go fetch it.
-            sendToBackgroundJs({
+            conn.send({
                 type:"GET_JWT_TOKEN",
                 username: _LOG_UI_DEFAULT_USERNAME,
                 password: _LOG_UI_DEFAULT_PASSWORD
