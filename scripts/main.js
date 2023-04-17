@@ -26,6 +26,13 @@ function updateFlightToken(data){
 
 }
 
+conn.on('REPORT_SESSION_ID', ()=>{
+        conn.send({
+        type:'REPORT_SESSION_ID',
+        sessionId: LogUI.Config.sessionData.getSessionIDKey()
+    })
+})
+
 conn.on('SET_FLIGHT_TOKEN', function(data){
     console.log('Got request to set flight token!')
     console.log(data)
@@ -117,4 +124,7 @@ conn.send({
     type:'GET_FLIGHT_TOKEN'
 }, (token)=>{
     updateFlightToken(token)
+}, (err)=>{
+    console.log('Error getting token, no LogUI for now...')
+    console.error(err)
 })

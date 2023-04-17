@@ -111,6 +111,10 @@ function AppListHandler(response){
 console.log("LOCAL JWT", getLocalJWT)
 
 function start(){
+    conn.send({
+        type:'REPORT_SESSION_ID'
+    })
+
     /**
      * On start up check to see if we have a logui_jwt token saved in local storage.
      */
