@@ -36,14 +36,6 @@ console.log("backround.js says hi, axios?")
 let controlsPort;
 let contentScriptsPort;
 
-setTimeout(()=>{
-    console.log('background.js sending something to content scripts!')
-    contentScriptsPort.postMessage({
-        type: 'TEST',
-        data: "idk, some stuff"
-    })
-}, 5000)
-
 function connected(p){
     console.log('connected port:', p)
     switch(p.name){
@@ -86,7 +78,7 @@ function setupPortHandler(port, logicHandler){
             //Handle logic handler error/failure
             error_object = {
                 _id:_id,
-                err_msg: err
+                err_msg: typeof err === 'object'?err.message:err
             }
             console.debug(`[background.js][PORT:${port.name}][RESPONSE:${error_object._id}] ${JSON.stringify(error_object, null, 4)}`)
             port.postMessage(error_object)

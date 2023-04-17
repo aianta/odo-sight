@@ -71,3 +71,8 @@
 .scrape-status-icon{
     margin-left:5px
 }
+
+.stats-entry{
+    display: flex;
+    justify-content: space-between;
+}
