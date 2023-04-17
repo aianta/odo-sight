@@ -46,7 +46,8 @@ function uuid() {
    * Used by non-background scripts to communicate with the background script.
    */
 class BackgroundConnection{
-    constructor(name){
+    constructor(name, origin){
+        this.origin = origin
         this.name = name;
         this.port = browser.runtime.connect({name:name})
         this.successMap = new Map()
@@ -75,14 +76,14 @@ class BackgroundConnection{
      */
     send(data, onSuccess, onError){
         data._id = uuid()
-        console.debug(`[PORT:${this.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
+        console.debug(`[${this.origin}][PORT:${this.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
         this.port.postMessage(data)
         this.successMap.set(data._id, onSuccess)
         this.errorMap.set(data._id, onError !== undefined?onError:(err)=>this.genericErrorHandler(err))
     }
 
     handleResponse(msg){
-        console.debug(`[PORT:${this.name}][RESPONSE:${msg._id}] ${JSON.stringify(msg,null, 4)}`)
+        console.debug(`[${this.origin}][PORT:${this.name}][RESPONSE:${msg._id}] ${JSON.stringify(msg,null, 4)}`)
         
         //If the message has a type, it is a request message from the background script
         //Invoke any registered function here.

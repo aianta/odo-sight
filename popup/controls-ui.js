@@ -19,6 +19,11 @@ $('#scrape_mongo_btn').button({
     label:'Scrape Mongo'
 })
 
+$('#send_flight_token')
+.button({
+    icon: 'fa-solid fa-file-import'
+})
+
 $('#edit_flight_btn').button({
     icon: "fa-solid fa-wrench"
 }).click(startAppSelect)
@@ -86,6 +91,9 @@ function startFlightSelect(app, flights){
         }).click(function(event){
             browser.storage.local.set({selected_flight: flight})
             backToMainFrame()
+            conn.send({
+                type:'SET_FLIGHT_TOKEN'
+            }, ()=>console.log("This should never run maybe."))
         })
     })
 

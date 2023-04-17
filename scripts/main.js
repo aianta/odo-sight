@@ -1,5 +1,43 @@
 
-let conn = new BackgroundConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME)
+// Establish connection to background.js to communicate with Popup and remote LogUI/Odo servers
+let conn = new BackgroundConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME, 'main.js')
+conn.on('TEST', function(data){
+    console.log('testing request from background.js! ')
+    console.log(data)
+})
+
+conn.on('SET_FLIGHT_TOKEN', function(data){
+    console.log('Got request to set flight token!')
+    console.log(data)
+
+    if(LogUI.isActive()){
+        console.log('Stopping LogUI')
+        LogUI.stop()
+    }
+    LogUI.clearSessionID()
+ 
+    console.log(`Updating LogUI config with new authorization token for flight ${data.flightID}`)
+    // let newConfig = JSON.parse(JSON.stringify(_odo_sight_LogUI_config))
+    // newConfig.logUIConfiguration.authorisationToken
+    _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = data.flightAuthorisationToken
+    setTimeout(()=>{
+        console.log('Re-starting LogUI with new config object!')
+        LogUI.init(_odo_sight_LogUI_config)
+        console.log('Authorization Token: ', _odo_sight_LogUI_config.logUIConfiguration.authorisationToken)
+        
+        setTimeout(()=>{
+            conn.send({
+                type:'REPORT_SESSION_ID',
+                sessionId: LogUI.Config.sessionData.getSessionIDKey()
+            })
+        },2000)
+        
+    }, 2000)
+    
+})
+
+
+
 
 // Register our tab id with our background script
 browser.runtime.sendMessage({
@@ -67,6 +105,13 @@ Node.prototype.addEventListener = function(a,b,c){
  */
 window.LogUI = LogUI
 LogUI.init(_odo_sight_LogUI_config)
+
+setTimeout(()=>{
+    conn.send({
+        type:'REPORT_SESSION_ID',
+        sessionId: LogUI.Config.sessionData.getSessionIDKey()
+    })
+},2000)
 
 console.log(LogUI)
 console.log("[Odo Sight] LogUI initalized.")

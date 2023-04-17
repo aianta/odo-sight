@@ -36,6 +36,14 @@ console.log("backround.js says hi, axios?")
 let controlsPort;
 let contentScriptsPort;
 
+setTimeout(()=>{
+    console.log('background.js sending something to content scripts!')
+    contentScriptsPort.postMessage({
+        type: 'TEST',
+        data: "idk, some stuff"
+    })
+}, 5000)
+
 function connected(p){
     console.log('connected port:', p)
     switch(p.name){
@@ -64,21 +72,23 @@ function connected(p){
  * 
  */
 function setupPortHandler(port, logicHandler){
+    console.log('Logic Handler:')
+    console.log(logicHandler)
     port.onMessage.addListener((data)=>{
-        console.debug(`[PORT:${port.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
+        console.debug(`[background.js][PORT:${port.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
         let _id = data._id //Extract message id
         logicHandler(data).then(function(result){
             //Handle successfully logic handler result.
             result._id = _id
-            console.debug(`[PORT:${port.name}][RESPONSE:${result._id}] ${JSON.stringify(result, null, 4)}`)
+            console.debug(`[background.js][PORT:${port.name}][RESPONSE:${result._id}] ${JSON.stringify(result, null, 4)}`)
             port.postMessage(result)
-        }).catch(err=>{
+        }).catch((err)=>{
             //Handle logic handler error/failure
             error_object = {
                 _id:_id,
                 err_msg: err
             }
-            console.debug(`[PORT:${port.name}][RESPONSE:${error_object._id}] ${JSON.stringify(error_object, null, 4)}`)
+            console.debug(`[background.js][PORT:${port.name}][RESPONSE:${error_object._id}] ${JSON.stringify(error_object, null, 4)}`)
             port.postMessage(error_object)
         })
     })
@@ -138,10 +148,13 @@ function handleContentScriptRequest(data){
     switch(data.type){
         case "GET_FLIGHT_TOKEN":
             return getFlightToken()
+        case "REPORT_SESSION_ID":
+            controlsPort.postMessage(data)
+            break;
     }
 }
 
-function handleControlRequest(data, sender, sendResponse){
+function handleControlRequest(data){
 
     switch(data.type){
         case "GET_JWT_TOKEN": 
@@ -164,7 +177,19 @@ function handleControlRequest(data, sender, sendResponse){
             })
         case "SCRAPE_MONGO":
             return scrapeMongo()
-        }
+        
+        case "SET_FLIGHT_TOKEN": 
+            getFlightToken().then((flight_token)=>{
+                payload = {
+                    type:'SET_FLIGHT_TOKEN',
+                    ...flight_token
+                }
+
+                contentScriptsPort.postMessage(payload)
+            })
+            break;
+            
+    }
 
 }
 
@@ -246,9 +271,9 @@ function getFlightToken(){
     return getSelectedFlight()
     .catch(err=>Promise.reject("No selected flight, cannot fetch token!"))
     .then(function(flight){
-        return axios.get(`http://${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
+        return axios.get(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
         .then(function(response){
-            return Promise.resolve(response)
+            return Promise.resolve(response.data)
         }).catch(function(error){
             console.error("Error getting flight token: ", err)
             return Promise.reject(err)
@@ -276,3 +301,4 @@ axios.interceptors.request.use(function(request){
 
     return request
 })
+

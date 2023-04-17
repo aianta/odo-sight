@@ -1,7 +1,19 @@
 console.log('controls.js says hi')
 
 //Set up persistent communication with background.js
-let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME)
+let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
+conn.on('REPORT_SESSION_ID', function(data){
+    $('#session_id').text(data.sessionId)
+})
+
+
+$('#send_flight_token').click(function(event){
+    conn.send({
+        type: 'SET_FLIGHT_TOKEN'
+    }, function(response){
+        console.log('background.js reports token set.')
+    })
+})
 
 /**
  * Handler to invoke mongo scrape procedure
