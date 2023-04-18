@@ -3,6 +3,11 @@ console.log('controls.js says hi')
 //Set up persistent communication with background.js
 let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
 
+conn.on('NETWORK_EVENT_LOGGED', function(data){
+    setStatus('network-events-status', 'green')
+    return Promise.resolve({msg:'ack'})
+})
+
 $('#start-btn').click(function(event){
     setStatus('logui-status', 'orange')
     conn.send({

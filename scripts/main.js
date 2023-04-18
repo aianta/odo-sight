@@ -73,12 +73,26 @@ browser.runtime.sendMessage({
     _data: 'some text'
 })
 
+window.reportedNetworkEventLogged = false
+
 //Pass along network events to LogUI
 browser.runtime.onMessage.addListener(
     (data, sender)=>{
         console.log("Logging network event: ", data)
         
         LogUI.logCustomMessage(data)
+        if(!window.reportedNetworkEventLogged){
+            conn.send({
+                type:'NETWORK_EVENT_LOGGED'
+            }, function(response){
+                console.log('toggling reportedNetworkEventLogged flag')
+                window.reportedNetworkEventLogged = true
+            },
+            function(error){
+                console.log('Error reporting network event!', JSON.stringify(error, null, 4))
+            })
+        }
+        
     }
 )
 

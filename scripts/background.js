@@ -163,6 +163,8 @@ function handleContentScriptRequest(data){
     switch(data.type){
         case "GET_FLIGHT_TOKEN":
             return getFlightToken()
+        case "NETWORK_EVENT_LOGGED":
+            controlsPort.postMessage(data)
         case "SET_FLIGHT_TOKEN":
             //These requests are actually just responses to controls.html, send them along
             controlsPort.postMessage(data)
