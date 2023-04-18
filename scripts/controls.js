@@ -2,9 +2,45 @@ console.log('controls.js says hi')
 
 //Set up persistent communication with background.js
 let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
-// conn.on('REPORT_SESSION_ID', function(data){
-//     $('#session_id').text(data.sessionId)
-// })
+
+$('#start-btn').click(function(event){
+    setStatus('logui-status', 'orange')
+    conn.send({
+        type: 'START_LOGUI'
+    },
+    function(response){
+        $('#session_id').text(response.sessionId)
+        setStatus('logui-status', 'green')
+    },
+    function(error){
+        if(error.err_msg.includes('already')){
+            setStatus('logui-status', 'green')
+        }else{
+            setStatus('logui-status', 'red')
+            showError(error.err_msg)
+        }
+    })
+})
+
+$('#stop-btn').click(function(event){
+    setStatus('logui-status',  'orange')
+    conn.send({
+        type:'STOP_LOGUI'
+    },
+    function(response){
+        setStatus('logui-status', 'black' )
+        $('#session_id').text('-')
+    },
+    function(error){
+        if(error.err_msg.includes('already')){
+            setStatus('logui-status', 'black')
+        }else{
+            setStatus('logui-status', 'red')
+            showError(error.err_msg)
+        }
+    }
+    )
+})
 
 
 $('#send_flight_token').click(function(event){
@@ -71,6 +107,17 @@ $('#new-flight-btn').click(function(event){
             console.log('created flight', createdFlight)
             browser.storage.local.set({selected_flight: createdFlight})
             backToMainFrame()
+            setStatus('logui-status', 'orange')
+            conn.send({
+                type:'SET_FLIGHT_TOKEN'
+            }, (response)=>{
+                setStatus('logui-status', 'green')
+                $('#session_id').text(response.sessionId);
+            }, (error)=>{
+                setStatus('logui-status', 'red')
+                showError(error.err_msg)
+            }
+            )
         })
     })
 })
@@ -118,9 +165,6 @@ function AppListHandler(response){
 console.log("LOCAL JWT", getLocalJWT)
 
 function start(){
-    conn.send({
-        type:'REPORT_SESSION_ID'
-    })
 
     /**
      * On start up check to see if we have a logui_jwt token saved in local storage.

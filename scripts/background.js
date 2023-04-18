@@ -167,9 +167,6 @@ function handleContentScriptRequest(data){
             //These requests are actually just responses to controls.html, send them along
             controlsPort.postMessage(data)
             break;
-        case "REPORT_SESSION_ID":
-            controlsPort.postMessage(data)
-            break;
     }
 }
 
@@ -196,12 +193,12 @@ function handleControlRequest(data){
             })
         case "SCRAPE_MONGO":
             return scrapeMongo()
-        
-        case "REPORT_SESSION_ID":
-            //TODO: implement proper responses in BackgroundConnection
+        case 'STOP_LOGUI':
             contentScriptsPort.postMessage(data)
             break;
-
+        case 'START_LOGUI':
+            contentScriptsPort.postMessage(data)
+            break;
         case "SET_FLIGHT_TOKEN": 
             getFlightToken().then((flight_token)=>{
                 payload = {

@@ -139,7 +139,7 @@ class OnHandlerWrapper {
             conn.port.postMessage(result)
         }).catch((err)=>{
             //Handle handler failure/error
-            error_object = {
+            let error_object = {
                 _id: _id,
                 //TODO: this might not be robust enough for all exceptions, built to handle axios failure.
                 err_msg: typeof err === 'object'?err.message:err

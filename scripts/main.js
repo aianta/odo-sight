@@ -26,13 +26,10 @@ function updateFlightToken(data){
     })
 }
 
-// conn.on('REPORT_SESSION_ID', ()=>{
-//         return Promise.resolve({
-//     
-//             sessionId: LogUI.Config.sessionData.getSessionIDKey()
-//         })
-// })
 
+/**
+ * Handle setting of flight token by control.html
+ */
 conn.on('SET_FLIGHT_TOKEN', function(data){
     console.log('Got request to set flight token!')
     console.log(data)
@@ -40,6 +37,34 @@ conn.on('SET_FLIGHT_TOKEN', function(data){
     return updateFlightToken(data)
 })
 
+conn.on('STOP_LOGUI', function(data){
+    return new Promise((resolve, reject)=>{
+        if(LogUI.isActive()){
+            LogUI.stop()
+            resolve({msg:'LogUI stopped'})
+        }else{
+            reject('LogUI is already stopped!')
+        }
+    })
+})
+
+conn.on('START_LOGUI', function(data){
+    return new Promise((resolve, reject)=>{
+        if(LogUI.isActive()){
+            console.log('LogUI already active')
+            reject('LogUI already active!')
+        }else{
+            console.log('Starting log UI')
+            LogUI.init(_odo_sight_LogUI_config)
+            setTimeout(()=>{
+                resolve({
+                    sessionId: LogUI.Config.sessionData.getSessionIDKey()
+                })
+            })
+        }
+    })
+    
+})
 
 
 
@@ -64,7 +89,8 @@ browser.runtime.onMessage.addListener(
 
 function reportIn(e){
     var a = this.lastListenerInfo[this.lastListenerInfo.length-1]
-    // console.log(a)
+    console.log('reportIn')
+    console.log(a)
   }
   
 Node.prototype.realAddEventListener = Node.prototype.addEventListener;
@@ -79,7 +105,7 @@ Node.prototype.addEventListener = function(a,b,c){
 
     //this.lastListenerInfo.forEach(listener=>console.log(""+listener.b.toString()))
     let logUIIndex = this.lastListenerInfo.findIndex(listener=>listener.b.toString().startsWith('function (browserEvent) {'))
-    //console.log('logUIIndex: ' + logUIIndex)
+    console.log('logUIIndex: ' + logUIIndex)
     let logUIListener = this.lastListenerInfo[logUIIndex]
 
     if(logUIIndex !== -1 || logUIIndex === 0){
@@ -108,17 +134,9 @@ Node.prototype.addEventListener = function(a,b,c){
  * Configuration is defined in logUIConfig.js
  */
 window.LogUI = LogUI
-// LogUI.init(_odo_sight_LogUI_config)
 
-// setTimeout(()=>{
-//     conn.send({
-//         type:'REPORT_SESSION_ID',
-//         sessionId: LogUI.Config.sessionData.getSessionIDKey()
-//     })
-// },2000)
 
 console.log(LogUI)
-console.log("[Odo Sight] LogUI initalized.")
 
 conn.send({
     type:'GET_FLIGHT_TOKEN'

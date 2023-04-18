@@ -7,6 +7,14 @@ console.log('controls-ui.js says hi!')
 $('#app-select-frame').addClass('hidden')
 $('#flight-select-frame').addClass('hidden')
 
+$('#start-btn').button({
+    icon: 'fa-solid fa-play green'
+})
+
+$('#stop-btn').button({
+    icon: 'fa-solid fa-square red'
+})
+
 $('#flight-back-btn').button({
     icon: 'fa-solid fa-arrow-left'
 }).click(backToMainFrame)
@@ -51,10 +59,10 @@ function clearError(){
 /**
  * 
  * @param {*} statusLabel 'logui-status', 'dom-effects-status', or 'network-events-status'
- * @param {*} statusValue 'green', 'red', 'orange'
+ * @param {*} statusValue 'green', 'red', 'orange', 'black'
  */
 function setStatus(statusLabel, statusValue){
-    $(`#${statusLabel}`).removeClass('green').removeClass('orange').removeClass('red')
+    $(`#${statusLabel}`).removeClass('black').removeClass('green').removeClass('orange').removeClass('red')
     $(`#${statusLabel}`).addClass(`${statusValue}`)
 }
 
