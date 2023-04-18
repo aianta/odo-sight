@@ -3,41 +3,41 @@
 let conn = new BackgroundConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME, 'main.js')
 
 function updateFlightToken(data){
-    if(LogUI.isActive()){
-        console.log('Stopping LogUI')
-        LogUI.stop()
-    }
-    LogUI.clearSessionID()
-    console.log(`Updating LogUI config with new authorization token for flight ${data.flightID}`)
-    _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = data.flightAuthorisationToken
-    setTimeout(()=>{
-        console.log('Re-starting LogUI with new config object!')
-        LogUI.init(_odo_sight_LogUI_config)
-        console.log('Authorization Token: ', _odo_sight_LogUI_config.logUIConfiguration.authorisationToken)
-        
+    return new Promise((resolve, reject)=>{
+        if(LogUI.isActive()){
+            console.log('Stopping LogUI')
+            LogUI.stop()
+        }
+        LogUI.clearSessionID()
+        console.log(`Updating LogUI config with new authorization token for flight ${data.flightID}`)
+        _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = data.flightAuthorisationToken
         setTimeout(()=>{
-            conn.send({
-                type:'REPORT_SESSION_ID',
-                sessionId: LogUI.Config.sessionData.getSessionIDKey()
-            })
-        },2000)
-        
-    }, 2000)
-
+            console.log('Re-starting LogUI with new config object!')
+            LogUI.init(_odo_sight_LogUI_config)
+            console.log('Authorization Token: ', _odo_sight_LogUI_config.logUIConfiguration.authorisationToken)
+            
+            setTimeout(()=>{
+                resolve({
+                    sessionId: LogUI.Config.sessionData.getSessionIDKey()
+                })
+            },2000)
+            
+        }, 2000)
+    })
 }
 
-conn.on('REPORT_SESSION_ID', ()=>{
-        conn.send({
-        type:'REPORT_SESSION_ID',
-        sessionId: LogUI.Config.sessionData.getSessionIDKey()
-    })
-})
+// conn.on('REPORT_SESSION_ID', ()=>{
+//         return Promise.resolve({
+//     
+//             sessionId: LogUI.Config.sessionData.getSessionIDKey()
+//         })
+// })
 
 conn.on('SET_FLIGHT_TOKEN', function(data){
     console.log('Got request to set flight token!')
     console.log(data)
 
-    updateFlightToken(data)
+    return updateFlightToken(data)
 })
 
 

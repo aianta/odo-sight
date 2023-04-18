@@ -54,6 +54,7 @@ function clearError(){
  * @param {*} statusValue 'green', 'red', 'orange'
  */
 function setStatus(statusLabel, statusValue){
+    $(`#${statusLabel}`).removeClass('green').removeClass('orange').removeClass('red')
     $(`#${statusLabel}`).addClass(`${statusValue}`)
 }
 
@@ -91,9 +92,16 @@ function startFlightSelect(app, flights){
         }).click(function(event){
             browser.storage.local.set({selected_flight: flight})
             backToMainFrame()
+            setStatus('logui-status', 'orange')
             conn.send({
                 type:'SET_FLIGHT_TOKEN'
-            }, ()=>console.log("This should never run maybe."))
+            }, (response)=>{
+                setStatus('logui-status', 'green')
+                $('#session_id').text(response.sessionId);
+            }, (error)=>{
+                setStatus('logui-status', 'red')
+                showError(error.err_msg)
+            })
         })
     })
 

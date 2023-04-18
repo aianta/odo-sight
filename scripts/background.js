@@ -64,11 +64,34 @@ function connected(p){
  * 
  */
 function setupPortHandler(port, logicHandler){
+
     console.log('Logic Handler:')
     console.log(logicHandler)
+
+
     port.onMessage.addListener((data)=>{
         console.debug(`[background.js][PORT:${port.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
         let _id = data._id //Extract message id
+       /**
+         * Responses to requests won't have types, and because of that, we shouldn't
+         * pass them down to our logic handler which infers what to do based on
+         * the type of request. Instead we should send that message along to whomever
+         * we didn't recieve it from. So if a message without a type comes from main.js/content scripts
+         * we send it to controls. If a message without a type comes from controls, we send it
+         * to content scripts.
+         */
+        if(data.type === undefined){
+            switch(port.name){
+                case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
+                    controlsPort.postMessage(data)
+                    break;
+                case CONTROLS_TO_BACKGROUND_PORT_NAME:
+                    contentScriptsPort.postMessage(data)
+                    break;
+            }
+            return
+        }
+        //Otherwise if a message has a type, proceed with invoking the logic handler.
         logicHandler(data).then(function(result){
             //Handle successfully logic handler result.
             result._id = _id
@@ -140,6 +163,10 @@ function handleContentScriptRequest(data){
     switch(data.type){
         case "GET_FLIGHT_TOKEN":
             return getFlightToken()
+        case "SET_FLIGHT_TOKEN":
+            //These requests are actually just responses to controls.html, send them along
+            controlsPort.postMessage(data)
+            break;
         case "REPORT_SESSION_ID":
             controlsPort.postMessage(data)
             break;
@@ -178,10 +205,10 @@ function handleControlRequest(data){
         case "SET_FLIGHT_TOKEN": 
             getFlightToken().then((flight_token)=>{
                 payload = {
+                    _id: data._id,
                     type:'SET_FLIGHT_TOKEN',
                     ...flight_token
                 }
-
                 contentScriptsPort.postMessage(payload)
             })
             break;
