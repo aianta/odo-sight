@@ -1,28 +1,86 @@
+/**
+ * Inject handler magic into the page. This code has to be injected like this because we need to modify the 
+ * prototype addEventListener on Node, and have that persist for the page scripts. Normally page scripts and content
+ * scripts are isolated from each other.
+ */
+var handlerMagicScript = document.createElement('script')
+var logUIScript = document.createElement('script')
+
+logUIScript.src = browser.runtime.getURL('/libs/logui.bundle.js')
+handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
+
+logUIScript.onload = function(){
+    this.remove();
+}
+handlerMagicScript.onload = function(){
+    this.remove();
+};
+
+(document.head || document.documentElement).appendChild(logUIScript)
+document.documentElement.appendChild(handlerMagicScript)
+
+window.addEventListener("message", (event)=>{
+    if(
+        event.source === window &&
+        event?.data?.direction === "from-page-script"
+    ){
+        alert(`Content script recieved message: "${JSON.stringify(event.data, null, 4)}"`)
+    }
+})
+
+// window.postMessage({
+//     direction: "from-content-script",
+//     message: "Baa!"
+// })
+
+function sendStartCommand(){
+    sendToPage({
+        config: _odo_sight_LogUI_config
+    })
+}
+
+function sendStopCommand(){
+    sendToPage({}, "STOP")
+}
+
+function sendToPage(data, command){
+    let payload = {
+        direction: "from-content-script",
+        command: command,
+        ...data
+    }
+
+    window.postMessage(
+        payload, "*"
+    )
+}
+
 
 // Establish connection to background.js to communicate with Popup and remote LogUI/Odo servers
 let conn = new BackgroundConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME, 'main.js')
 
 function updateFlightToken(data){
     return new Promise((resolve, reject)=>{
-        if(LogUI.isActive()){
-            console.log('Stopping LogUI')
-            LogUI.stop()
-        }
-        LogUI.clearSessionID()
+       
+        
         console.log(`Updating LogUI config with new authorization token for flight ${data.flightID}`)
         _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = data.flightAuthorisationToken
-        setTimeout(()=>{
-            console.log('Re-starting LogUI with new config object!')
-            LogUI.init(_odo_sight_LogUI_config)
-            console.log('Authorization Token: ', _odo_sight_LogUI_config.logUIConfiguration.authorisationToken)
+        sendToPage({config:_odo_sight_LogUI_config}, "RESTART")
+        resolve({
+            sessionId: "broken for now"
+        })
+        // setTimeout(()=>{
+        //     console.log('Re-starting LogUI with new config object!')
+        //     LogUI.init(_odo_sight_LogUI_config)
+        //     console.log('Authorization Token: ', _odo_sight_LogUI_config.logUIConfiguration.authorisationToken)
             
-            setTimeout(()=>{
-                resolve({
-                    sessionId: LogUI.Config.sessionData.getSessionIDKey()
-                })
-            },2000)
+        //     setTimeout(()=>{
+        //         resolve({
+        //             sessionId: LogUI.Config.sessionData.getSessionIDKey()
+        //         })
+        //     },2000)
             
-        }, 2000)
+        // }, 2000)
     })
 }
 
@@ -39,29 +97,39 @@ conn.on('SET_FLIGHT_TOKEN', function(data){
 
 conn.on('STOP_LOGUI', function(data){
     return new Promise((resolve, reject)=>{
-        if(LogUI.isActive()){
-            LogUI.stop()
-            resolve({msg:'LogUI stopped'})
-        }else{
-            reject('LogUI is already stopped!')
-        }
+        sendStopCommand()
+        resolve({
+            msg:'LogUI stopped'
+        });
+        // if(LogUI.isActive()){
+        //     LogUI.stop()
+        //     resolve({msg:'LogUI stopped'})
+        // }else{
+        //     reject('LogUI is already stopped!')
+        // }
     })
 })
 
 conn.on('START_LOGUI', function(data){
     return new Promise((resolve, reject)=>{
-        if(LogUI.isActive()){
-            console.log('LogUI already active')
-            reject('LogUI already active!')
-        }else{
-            console.log('Starting log UI')
-            LogUI.init(_odo_sight_LogUI_config)
-            setTimeout(()=>{
-                resolve({
-                    sessionId: LogUI.Config.sessionData.getSessionIDKey()
-                })
-            })
-        }
+        sendToPage({
+            config: _odo_sight_LogUI_config
+        }, "START")
+        resolve({
+            sessionId: "Broken for now..."
+        })
+        // if(LogUI.isActive()){
+        //     console.log('LogUI already active')
+        //     reject('LogUI already active!')
+        // }else{
+        //     console.log('Starting log UI')
+        //     LogUI.init(_odo_sight_LogUI_config)
+        //     setTimeout(()=>{
+        //         resolve({
+        //             sessionId: LogUI.Config.sessionData.getSessionIDKey()
+        //         })
+        //     })
+        // }
     })
     
 })
@@ -96,51 +164,6 @@ browser.runtime.onMessage.addListener(
     }
 )
 
-/**
- * Event Listener Hijack for accurate cause-effect logging. 
- * Key concept: Need to make sure logging event handlers fire BEFORE any dom changes take place.
- */
-
-function reportIn(e){
-    var a = this.lastListenerInfo[this.lastListenerInfo.length-1]
-    console.log('reportIn')
-    console.log(a)
-  }
-  
-Node.prototype.realAddEventListener = Node.prototype.addEventListener;
-
-Node.prototype.addEventListener = function(a,b,c){
-    this.realAddEventListener(a, reportIn, c)
-    this.realAddEventListener(a,b,c)
-    if(!this.lastListenerInfo){
-        this.lastListenerInfo = new Array()
-    };
-    this.lastListenerInfo.push({a:a, b:b, c:c})
-
-    //this.lastListenerInfo.forEach(listener=>console.log(""+listener.b.toString()))
-    let logUIIndex = this.lastListenerInfo.findIndex(listener=>listener.b.toString().startsWith('function (browserEvent) {'))
-    console.log('logUIIndex: ' + logUIIndex)
-    let logUIListener = this.lastListenerInfo[logUIIndex]
-
-    if(logUIIndex !== -1 || logUIIndex === 0){
-        let newLastListenerInfo = []
-        //If we do have a LogUI handler here that's not already in first place. Let's ensure it executes first by:
-        //removing all other listeners, adding the logUI listener, then adding the other listeners back.
-        let otherListeners = this.lastListenerInfo.filter(listener=>!listener.b.toString().startsWith('function (browserEvent) {'))
-        for (let listener of otherListeners){
-        this.removeEventListener(listener.a, listener.b, listener.c)
-        }
-        this.realAddEventListener(logUIListener.a, logUIListener.b, logUIListener.c)
-        newLastListenerInfo.push({a:logUIListener.a, b:logUIListener.b, c:logUIListener.c})
-        for (let listener of otherListeners){
-        this.realAddEventListener(listener.a, listener.b, listener.c)
-        newLastListenerInfo.push({a:listener.a, b:listener.b, c:listener.c})
-        }
-        this.lastListenerInfo = newLastListenerInfo
-    }
-
-
-}
 
 
 /**
