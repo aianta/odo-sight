@@ -5,8 +5,8 @@
 
 function reportIn(e){
     var a = this.lastListenerInfo[this.lastListenerInfo.length-1]
-    console.log('reportIn')
-    console.log(a)
+    // console.log('reportIn')
+    // console.log(a)
   }
   
 Node.prototype.realAddEventListener = Node.prototype.addEventListener;
@@ -19,9 +19,9 @@ Node.prototype.addEventListener = function(a,b,c){
     };
     this.lastListenerInfo.push({a:a, b:b, c:c})
 
-    this.lastListenerInfo.forEach(listener=>console.log(""+listener.b.toString()))
+    // this.lastListenerInfo.forEach(listener=>console.log(""+listener.b.toString()))
     let logUIIndex = this.lastListenerInfo.findIndex(listener=>listener.b.toString().startsWith('function (browserEvent) {'))
-    console.log('logUIIndex: ' + logUIIndex)
+    // console.log('logUIIndex: ' + logUIIndex)
     let logUIListener = this.lastListenerInfo[logUIIndex]
 
     if(logUIIndex !== -1 || logUIIndex === 0){
@@ -43,6 +43,9 @@ Node.prototype.addEventListener = function(a,b,c){
 
 
 }
+
+console.log('Establishing connection with content scripts!')
+let contentScriptConn = new WindowConnection('handlerMagic.js', 'main.js')
 
 _odo_sight_LogUI_config = {
     logUIConfiguration: {
@@ -163,66 +166,59 @@ _odo_sight_LogUI_config = {
 }
 
 
-function messageContentScript(){
-    window.postMessage({
-        direction: "from-page-script",
-        message: "boo!"
-    }, "*")
-}
-
-function sendToContentScript(data){
-    window.postMessage({
-        direction: "from-page-script",
-        ...data
-    }, "*")
-}
-
-// setInterval(function(){
-//     window.LogUI = LogUI
-//     LogUI.init(_odo_sight_LogUI_config)
-// },1000)
-
-
-window.addEventListener("message",  (event)=>{
-    if(
-        event.source === window &&
-        event?.data?.direction === "from-content-script"
-    ){
-        
-        switch(event.data.command){
-            case "STOP": 
-                console.log('Stopping LogUI'); 
-                LogUI.stop(); 
-                break;
-            case "START": 
-            if(!LogUI.isActive()){
-                LogUI.init(event.data.config);
-            }
-            setTimeout(()=>{
-                sendToContentScript({
-                    sessionId: LogUI.Config.sessionData.getSessionIDKey()
-                })
-            },2000)
-            break;
-            case "RESTART": 
-                if(LogUI.isActive()){
-                    console.log('Stopping LogUI')
-                    LogUI.stop();
-                }
-
-                LogUI.clearSessionID();
-                LogUI.init(event.data.config);
-                setTimeout(()=>{
-                    sendToContentScript({
-                        sessionId: LogUI.Config.sessionData.getSessionIDKey()
-                    })
-                },2000)
-
-                break;
-
-        }
-
+/**
+ * Handle LogUI restart request
+ */
+contentScriptConn.on('RESTART', function(request){
+  return new Promise((resolve, reject)=>{
+    if(LogUI.isActive()){
+      console.log('Stopping LogUI')
+      LogUI.stop()
     }
+    LogUI.clearSessionID()
+    console.log(`Starting LogUI with: ${JSON.stringify(request.config, null,4)}`)
+    LogUI.init(request.config)
+    setTimeout(()=>{
+      resolve({
+        sessionId: LogUI.Config.sessionData.getSessionIDKey()
+      })
+    }, 2000)
+  })
 })
 
+/**
+ * Handle LogUI start request
+ */
+contentScriptConn.on('START', function(request){
+  return new Promise((resolve, reject)=>{
+    if(LogUI.isActive()){
+      console.log('LogUI is already active!')
+      reject("LogUI is already active!")
+    }
+    LogUI.init(request.config)
+    setTimeout(()=>{
+      resolve({
+        sessionId: LogUI.Config.sessionData.getSessionIDKey()
+      })
+    })
+
+  })
+})
+
+
+/**
+ * Handle LogUI stop request
+ */
+
+contentScriptConn.on('STOP', function(request){
+  return new Promise((resolve,reject)=>{
+    if(!LogUI.isActive()){
+      console.log('LogUI is already stopped!')
+      reject('LogUI is already stopped!')
+    }else{
+      LogUI.stop()
+      resolve({msg:"LogUI stopped!"})
+    }
+  })
+})
 

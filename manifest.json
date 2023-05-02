@@ -7,6 +7,7 @@
         {
             "matches": ["*://localhost/*"],
             "js": ["scripts/globalThis.js","/scripts/constants.js", "/scripts/utils.js", "scripts/logUIConfig.js", "libs/dom-effects.js","scripts/main.js"]
+
         }
     ],
     "permissions": ["storage","webRequest"],
@@ -23,7 +24,7 @@
     },
     "web_accessible_resources": [
         {
-          "resources": [ "/scripts/handlerMagic.js",  "/libs/logui.bundle.js"],
+          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js"],
           "matches": [ "*://localhost/*" ]
         }]
    

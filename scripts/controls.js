@@ -1,7 +1,7 @@
 console.log('controls.js says hi')
 
 //Set up persistent communication with background.js
-let conn = new BackgroundConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
+let conn = new PortConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
 
 conn.on('NETWORK_EVENT_LOGGED', function(data){
     setStatus('network-events-status', 'green')
