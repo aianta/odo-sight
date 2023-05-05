@@ -6,26 +6,20 @@
  * of the extension. 
  * 
  * Currently the following interactions flow through background.js:
+ *
  * 
- * 1. [Content Scripts]->background.js: This flow is invoked by content scripts and 
- * reports the TAB id of the content script to background.js. This tab id is used 
- * in the [devtools.html]->background.js->[Content Scripts] flow to direct messages
- * to the correct tab.
- * 
- * 2. [devtools.html]->background.js->[Content Scripts]: This flow is invoked by 
- * the devtools scripts which monitor network request traffic. They pass along 
- * the NETWORK_EVENT details which background.js sends to the [Content Scripts] 
- * where the LogUI client exists so that the network event may be logged. 
- * 
- * 3. [controls.html]<->background.js<->[LogUI Server]: Many instances of this flow
+ * 1. [controls.html]<->background.js<->[LogUI Server]: Many instances of this flow
  * exist. It is used to communicate with the LogUI server and facilitate quality of 
  * life functionality. 
  * 
- * 4. [Content Scripts]<->background.js<->[controls.html]: Used to communicate flight auth tokens and 
+ * 2. [Content Scripts]<->background.js<->[controls.html]: Used to communicate flight auth tokens and 
  * relay commands from controls.html
  * 
- * Unlike flows 1. & 2. flow 3 & 4. is facilitated by ongoing connections between 
- * sender and recipient. This is managed through the browser.runtime.onConnect listener
+ * 3. [networkRequestLogger]->background.js->[main.js]->[handlerMagic.js]: Used to log
+ * network events.
+ * 
+ * All flows are facilitated by 2-way persistant connections through the 
+ * communications API provided by utils.js.
  * 
  */
 
@@ -55,6 +49,8 @@ function connected(p){
 
     }
 }
+
+browser.runtime.onConnect.addListener(connected);
 
 
 /**
@@ -119,53 +115,8 @@ function setupPortHandler(port, logicHandler){
 
 
 
-browser.runtime.onConnect.addListener(connected);
-
-browser.runtime.onMessage.addListener(
-    (data, sender, sendResponse)=>{
-        console.log("woah got message from:", sender, sendResponse)
-    
-        if(sender.url.includes("devtools.html")){
-
-            handleNetworkEventFromDevTools(data, sender, sendResponse)
-
-        }else{
-            
-            handleContentScriptTabRegistration(data, sender, sendResponse)
-        }
-
-    }
-)
-
-/**
- * Implements flow 1.
- */
-function handleContentScriptTabRegistration(data, sender, sendResponse){
-    console.log('saving tabId of content script with LogUI instance.')
-            
-    //This is a message from the content script
-    browser.storage.local.set({tab_destination: sender.tab.id})
-}
 
 
-/**
- * Implements flow 2.
- */
-function handleNetworkEventFromDevTools(data, sender, sendResponse){
-    console.log("Passing data from devtools to content script!")
-    //Get the tab id to send to
-    browser.storage.local.get(['tab_destination'], (result)=>{
-        console.log("browser storage result", result)
-        if(!result || result === undefined || result === {}){
-            console.log("tab_destination not yet set!")
-            return 
-        }
-        let tab_destination = result.tab_destination
-
-        //Send message to content script
-        browser.tabs.sendMessage(tab_destination, data)
-    })
-}
 
 /**
  * Handles requests originating from the devtools scripts

@@ -127,14 +127,6 @@ pageConn.on('NETWORK_EVENT_LOGGED', function(data){
 })
 
 
-/**
- * Configure LogUI
- * Configuration is defined in logUIConfig.js
- */
-window.LogUI = LogUI
-
-
-console.log(LogUI)
 
 conn.send({
     type:'GET_FLIGHT_TOKEN'
