@@ -15,6 +15,7 @@ _LOG_UI_DEFAULT_PASSWORD = "01134hello"
  */
 CONTROLS_TO_BACKGROUND_PORT_NAME = "controls<->background"
 CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME = "content scripts<->background"
+DEVTOOLS_TO_BACKGROUND_PORT_NAME = "devtools<->background"
 
 
 /**

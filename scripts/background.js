@@ -35,6 +35,7 @@ console.log("backround.js says hi, axios?")
 //Setup communication with controls.html & content scripts
 let controlsPort;
 let contentScriptsPort;
+let devtoolsPort;
 
 function connected(p){
     console.log('connected port:', p)
@@ -47,6 +48,11 @@ function connected(p){
             contentScriptsPort = p;
             setupPortHandler(contentScriptsPort, handleContentScriptRequest)
             break;
+        case DEVTOOLS_TO_BACKGROUND_PORT_NAME:
+            devtoolsPort = p;
+            setupPortHandler(devtoolsPort, handleDevtoolsRequest)
+            break;
+
     }
 }
 
@@ -79,6 +85,8 @@ function setupPortHandler(port, logicHandler){
          * we didn't recieve it from. So if a message without a type comes from main.js/content scripts
          * we send it to controls. If a message without a type comes from controls, we send it
          * to content scripts.
+         * 
+         * TODO: if there ever are responses that have to go back to devtools, may have to make some changes here.
          */
         if(data.type === undefined){
             switch(port.name){
@@ -159,6 +167,24 @@ function handleNetworkEventFromDevTools(data, sender, sendResponse){
     })
 }
 
+/**
+ * Handles requests originating from the devtools scripts
+ * @param {Object} data 
+ */
+function handleDevtoolsRequest(data){
+    switch(data.type){
+        case "LOG_NETWORK_EVENT":
+            contentScriptsPort.postMessage(data)
+            break;
+    }
+}
+
+
+/**
+ * Handles request originating from the content scripts
+ * @param {Object} data 
+ * @returns 
+ */
 function handleContentScriptRequest(data){
     switch(data.type){
         case "GET_FLIGHT_TOKEN":
@@ -172,6 +198,11 @@ function handleContentScriptRequest(data){
     }
 }
 
+/**
+ * Handles requests originating from the controls scripts.
+ * @param {Object} data 
+ * @returns 
+ */
 function handleControlRequest(data){
 
     switch(data.type){

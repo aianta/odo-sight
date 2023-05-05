@@ -251,7 +251,7 @@ class WindowConnection extends AbstractConnection {
 
     send(data, onSuccess, onError){
         super.send(data, onSuccess, onError)
-        console.log(`sending and will invoke on success: ${onSuccess.toString()}`)
+        console.log(`sending and will invoke on success: ${onSuccess?.toString()}`)
 
         this.sendFunction(data)
     }

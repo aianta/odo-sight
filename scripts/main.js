@@ -59,6 +59,14 @@ function updateFlightToken(data){
     })
 }
 
+/**
+ * Handle a LOG_NETWORK_EVENT request.
+ * 
+ * Just pass it along to the page.
+ */
+conn.on('LOG_NETWORK_EVENT', function(data){
+    pageConn.send(data)
+})
 
 /**
  * Handle setting of flight token by control.html
@@ -70,6 +78,9 @@ conn.on('SET_FLIGHT_TOKEN', function(data){
     return updateFlightToken(data)
 })
 
+/**
+ * Handle stop logui request
+ */
 conn.on('STOP_LOGUI', function(data){
     return new Promise((resolve, reject)=>{
         pageConn.send({
@@ -82,6 +93,9 @@ conn.on('STOP_LOGUI', function(data){
     })
 })
 
+/**
+ * Handle start log ui request
+ */
 conn.on('START_LOGUI', function(data){
     return new Promise((resolve, reject)=>{
         pageConn.send({
@@ -104,29 +118,13 @@ browser.runtime.sendMessage({
     _data: 'some text'
 })
 
-window.reportedNetworkEventLogged = false
-
-//Pass along network events to LogUI
-// browser.runtime.onMessage.addListener(
-//     (data, sender)=>{
-//         console.log("Logging network event: ", data)
-        
-//         LogUI.logCustomMessage(data)
-//         if(!window.reportedNetworkEventLogged){
-//             conn.send({
-//                 type:'NETWORK_EVENT_LOGGED'
-//             }, function(response){
-//                 console.log('toggling reportedNetworkEventLogged flag')
-//                 window.reportedNetworkEventLogged = true
-//             },
-//             function(error){
-//                 console.log('Error reporting network event!', JSON.stringify(error, null, 4))
-//             })
-//         }
-        
-//     }
-// )
-
+/**
+ * Pass network event logged status update over to backround scripts.
+ * Final destination should be controls.js to update the UI.
+ */
+pageConn.on('NETWORK_EVENT_LOGGED', function(data){
+    conn.send(data)
+})
 
 
 /**

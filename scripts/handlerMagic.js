@@ -165,6 +165,27 @@ _odo_sight_LogUI_config = {
     },
 }
 
+window.reportedNetworkEventLogged = false
+
+contentScriptConn.on('LOG_NETWORK_EVENT', function(request){
+  return new Promise((resolve, reject)=>{
+    if(!LogUI.isActive()){
+      reject('LogUI is not active, cannot log network request')
+    }
+    console.log('Logging NETWORK_EVENT!')
+    LogUI.logCustomMessage(request.eventDetails)
+    if(!window.reportedNetworkEventLogged){
+      contentScriptConn.send({
+        type:'NETWORK_EVENT_LOGGED'
+      }, function(response){
+        window.reportedNetworkEventLogged = true
+      }, function(error){
+        console.error('Error reporting network event logged!', JSON.stringify(error, null, 4))
+      })
+    }
+  })
+})
+
 
 /**
  * Handle LogUI restart request

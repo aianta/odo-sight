@@ -1,7 +1,6 @@
 
-// window.LogUI = LogUI
-// // LogUI.init(_odo_sight_LogUI_config)
-console.log("[Odo Sight] LogUI initalized.")
+//Set up connection to background script to report network events.
+let conn = new PortConnection(DEVTOOLS_TO_BACKGROUND_PORT_NAME, 'networkRequestLogger.js')
 
 
 var _fields = [
@@ -15,10 +14,6 @@ var _fields = [
 
 browser.devtools.network.onRequestFinished.addListener((record)=>{
     console.log("Odo's wrath can be felt in the wind.")
-
-    // if (!LogUI || !LogUI.isActive()){
-    //     return
-    // }
 
 
     let target_host = "localhost:8088"
@@ -44,8 +39,11 @@ browser.devtools.network.onRequestFinished.addListener((record)=>{
 
             }
         }
-
-        browser.runtime.sendMessage(eventDetails)
+        
+        conn.send({
+            type: "LOG_NETWORK_EVENT",
+            eventDetails: eventDetails
+        })
     }
 
 
