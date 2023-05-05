@@ -1,64 +1,34 @@
 /**
- * Inject handler magic into the page. This code has to be injected like this because we need to modify the 
+ * Inject scripts into the page. This code has to be injected like this because we need to modify the 
  * prototype addEventListener on Node, and have that persist for the page scripts. Normally page scripts and content
  * scripts are isolated from each other.
  * https://stackoverflow.com/questions/9515704/access-variables-and-functions-defined-in-page-context-using-a-content-script
+ * 
+ * Injected scripts:
+ * logui.bundle.js -> The actual logUI client.
+ * handlerMagic.js -> EventHandler hijack and re-order logic to ensure logUI handlers get invoked before DOM changes. handlerMagic also performs all communication with main.js
+ * domeffects.js -> coupled tightly to logui so needs to exist in the same execution context as logui.bundle.js 
+ * utils.js -> Communication layer utilities that helps handlerMagic communicate with main.js using the same API/communication constructs as the rest of the extension. 
  */
 var handlerMagicScript = document.createElement('script')
 var logUIScript = document.createElement('script')
 var utilsScript = document.createElement('script')
+var domeffectsScript = document.createElement('script')
 
 utilsScript.src = browser.runtime.getURL('/scripts/utils.js')
 logUIScript.src = browser.runtime.getURL('/libs/logui.bundle.js')
 handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
+domeffectsScript.src = browser.runtime.getURL('/libs/dom-effects.js')
 
-utilsScript.onload = function(){
-    this.remove();
-}
-
-logUIScript.onload = function(){
-    this.remove();
-}
-handlerMagicScript.onload = function(){
-    this.remove();
-};
+domeffectsScript.onload = function(){this.remove();};
+utilsScript.onload = function(){this.remove();};
+logUIScript.onload = function(){this.remove();};
+handlerMagicScript.onload = function(){this.remove();};
 
 (document.head || document.documentElement).appendChild(utilsScript);
 (document.head || document.documentElement).appendChild(logUIScript);
 (document.head || document.documentElement).appendChild(handlerMagicScript);
-
-
-// window.addEventListener("message", (event)=>{
-//     if(
-//         event.source === window &&
-//         event?.data?.direction === "from-page-script"
-//     ){
-//         alert(`Content script recieved message: "${JSON.stringify(event.data, null, 4)}"`)
-//     }
-// })
-
-
-// function sendStartCommand(){
-//     sendToPage({
-//         config: _odo_sight_LogUI_config
-//     })
-// }
-
-// function sendStopCommand(){
-//     sendToPage({}, "STOP")
-// }
-
-// function sendToPage(data, command){
-//     let payload = {
-//         direction: "from-content-script",
-//         command: command,
-//         ...data
-//     }
-
-//     window.postMessage(
-//         payload, "*"
-//     )
-// }
+(document.head || document.documentElement).appendChild(domeffectsScript);
 
 
 console.log('Establishing connection to background script!')
@@ -85,11 +55,6 @@ function updateFlightToken(data){
             reject(err)
         })
         
-        
-        // sendToPage({config:_odo_sight_LogUI_config}, "RESTART")
-        // resolve({
-        //     sessionId: "broken for now"
-        // })
 
     })
 }
@@ -114,11 +79,6 @@ conn.on('STOP_LOGUI', function(data){
         },(err)=>{
             reject(err)
         })
-
-        // sendStopCommand()
-        // resolve({
-        //     msg:'LogUI stopped'
-        // });
     })
 })
 
@@ -132,13 +92,6 @@ conn.on('START_LOGUI', function(data){
         }, (err)=>{
             reject(err)
         })
-
-        // sendToPage({
-        //     config: _odo_sight_LogUI_config
-        // }, "START")
-        // resolve({
-        //     sessionId: "Broken for now..."
-        // })
        
     })
     

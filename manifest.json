@@ -6,7 +6,7 @@
     "content_scripts": [
         {
             "matches": ["*://localhost/*"],
-            "js": ["scripts/globalThis.js","/scripts/constants.js", "/scripts/utils.js", "scripts/logUIConfig.js", "libs/dom-effects.js","scripts/main.js"]
+            "js": ["scripts/globalThis.js","/scripts/constants.js", "/scripts/utils.js", "scripts/logUIConfig.js","scripts/main.js"]
 
         }
     ],
@@ -24,7 +24,7 @@
     },
     "web_accessible_resources": [
         {
-          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js"],
+          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js", "/libs/dom-effects.js"],
           "matches": [ "*://localhost/*" ]
         }]
    
