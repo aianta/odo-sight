@@ -824,6 +824,7 @@ var LogUI = (function () {
 	      if (_typeof_1(messageStr) === 'object' && messageStr !== null) {
 	        consoleFunction("LogUI".concat(currentStateString, " @ ").concat(timeDelta, "ms > Logged object below"));
 	        consoleFunction(messageStr);
+			consoleFunction(JSON.stringify(messageStr, null, 4))
 	        return;
 	      }
 
@@ -4220,7 +4221,7 @@ var LogUI = (function () {
 	  // The URL of the WebSocket endpoint to send data to.
 	  authorisationToken: null,
 	  // The string representing the authentication token to connect to the endpoint with.
-	  cacheSize: 10,
+	  cacheSize: 1,
 	  // The maximum number of stored events that can be in the cache before flushing.
 	  maximumCacheSize: 1000,
 	  // When no connection is present, this is the cache size we shut down LogUI at.

@@ -8,13 +8,41 @@ _odo_sight_LogUI_config = {
         userID: 123,
     },
     browserEvents: {
-      trackCursor: false
+      trackCursor: false,
+      URLChanges: true
     },
     trackingConfiguration: {
         'page-load':{
           selector: 'html',
           event: 'load',
           name: 'PAGE_LOAD'
+        },
+        'list-item-clicks': {
+          selector: 'li',
+          event: 'click',
+          name: 'LIST_ITEM_CLICK',
+          metadata: [
+            {
+              nameForLog: 'idAttribute',
+              sourcer: 'elementAttribute',
+              lookFor: 'id'
+            },
+            {
+              nameForLog: 'className',
+              sourcer: 'elementProperty',
+              lookFor: 'className'
+            },
+            {
+              nameForLog: 'baseURI',
+              sourcer: 'elementProperty',
+              lookFor: 'baseURI'
+            },
+            {
+              nameForLog: 'nodeName',
+              sourcer: 'elementProperty',
+              lookFor: 'nodeName'
+            }
+          ]
         },
         'link-clicks':{
           selector: 'a',

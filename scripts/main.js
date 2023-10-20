@@ -14,21 +14,25 @@ var handlerMagicScript = document.createElement('script')
 var logUIScript = document.createElement('script')
 var utilsScript = document.createElement('script')
 var domeffectsScript = document.createElement('script')
+// var html2canvasScript = document.createElement('script')
 
 utilsScript.src = browser.runtime.getURL('/scripts/utils.js')
 logUIScript.src = browser.runtime.getURL('/libs/logui.bundle.js')
 handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
 domeffectsScript.src = browser.runtime.getURL('/libs/dom-effects.js')
+// html2canvasScript.src = browser.runtime.getURL('/libs/html2canvas.min.js')
 
 domeffectsScript.onload = function(){this.remove();};
 utilsScript.onload = function(){this.remove();};
 logUIScript.onload = function(){this.remove();};
 handlerMagicScript.onload = function(){this.remove();};
+// html2canvasScript.onload = function(){this.remove();};
 
 (document.head || document.documentElement).appendChild(utilsScript);
 (document.head || document.documentElement).appendChild(logUIScript);
 (document.head || document.documentElement).appendChild(handlerMagicScript);
 (document.head || document.documentElement).appendChild(domeffectsScript);
+// (document.head || document.documentElement).appendChild(html2canvasScript);
 
 
 console.log('Establishing connection to background script!')
@@ -114,9 +118,9 @@ conn.on('START_LOGUI', function(data){
 
 
 // Register our tab id with our background script
-browser.runtime.sendMessage({
-    _data: 'some text'
-})
+// browser.runtime.sendMessage({
+//     _data: 'some text'
+// })
 
 /**
  * Pass network event logged status update over to backround scripts.

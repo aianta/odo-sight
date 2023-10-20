@@ -10,7 +10,7 @@
 
         }
     ],
-    "permissions": ["storage","webRequest"],
+    "permissions": ["storage","webRequest", "webRequestBlocking", "webRequestFilterResponse"],
     "devtools_page": "devtools.html",
     "background":{
         "scripts": ["/libs/jquery-3.6.4.min.js","/scripts/constants.js","/scripts/utils.js","/libs/axios.min.js","/scripts/background.js"]
@@ -24,7 +24,7 @@
     },
     "web_accessible_resources": [
         {
-          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js", "/libs/dom-effects.js"],
+          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js", "/libs/dom-effects.js", "/libs/html2canvas.min.js"],
           "matches": [ "*://localhost/*" ]
         }]
    

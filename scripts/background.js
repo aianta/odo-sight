@@ -29,7 +29,7 @@ console.log("backround.js says hi, axios?")
 //Setup communication with controls.html & content scripts
 let controlsPort;
 let contentScriptsPort;
-let devtoolsPort;
+// let devtoolsPort;
 
 function connected(p){
     console.log('connected port:', p)
@@ -42,10 +42,10 @@ function connected(p){
             contentScriptsPort = p;
             setupPortHandler(contentScriptsPort, handleContentScriptRequest)
             break;
-        case DEVTOOLS_TO_BACKGROUND_PORT_NAME:
-            devtoolsPort = p;
-            setupPortHandler(devtoolsPort, handleDevtoolsRequest)
-            break;
+        // case DEVTOOLS_TO_BACKGROUND_PORT_NAME:
+        //     devtoolsPort = p;
+        //     setupPortHandler(devtoolsPort, handleDevtoolsRequest)
+        //     break;
 
     }
 }
@@ -118,17 +118,17 @@ function setupPortHandler(port, logicHandler){
 
 
 
-/**
- * Handles requests originating from the devtools scripts
- * @param {Object} data 
- */
-function handleDevtoolsRequest(data){
-    switch(data.type){
-        case "LOG_NETWORK_EVENT":
-            contentScriptsPort.postMessage(data)
-            break;
-    }
-}
+// /**
+//  * Handles requests originating from the devtools scripts
+//  * @param {Object} data 
+//  */
+// function handleDevtoolsRequest(data){
+//     switch(data.type){
+//         case "LOG_NETWORK_EVENT":
+//             contentScriptsPort.postMessage(data)
+//             break;
+//     }
+// }
 
 
 /**
@@ -306,4 +306,87 @@ axios.interceptors.request.use(function(request){
 
     return request
 })
+
+function logNetworkRequest(record){
+
+    var _fields = [
+        "timeStamp",
+        "requestId",
+        "method", 
+        "requestBody",
+        "url",
+        "documentUrl",
+        "type"
+    ]
+    
+    //TODO: should get the host programatically.
+    let target_host = "localhost:8088"
+
+    //Only capture xmlhttprequests going to the target host
+    if(record.type === 'xmlhttprequest' && record.url.includes(target_host)){
+        //Intercept the response https://github.com/mdn/webextensions-examples/blob/main/http-response/background.js
+        let filter = browser.webRequest.filterResponseData(record.requestId)
+        let decoder = new TextDecoder("utf-8")
+        let encoder = new TextEncoder()
+        let eventDetails = {
+            name: "NETWORK_EVENT"
+        }
+
+
+        filter.ondata = event => {
+
+
+            console.log(record)
+
+            for (const [key, value] of Object.entries(record)){
+                if(_fields.includes(key)){
+                    
+                    if(typeof value === 'object'){
+                        eventDetails[key] = JSON.stringify(value)
+                    }else{
+                        eventDetails[key] = value
+                    }
+
+                }
+            }
+                
+
+            
+
+            let str = decoder.decode(event.data, {stream:true})
+
+            try{
+                let jsonData = JSON.parse(str)
+                eventDetails['responseBody'] = str
+            }catch(error){
+                //Parsing error, the response data wasn't json, so we don't care about it.
+            }finally{
+                filter.write(event.data)
+                filter.disconnect()
+            }
+            
+            
+
+        
+            console.log(`eventDetails: ${JSON.stringify(eventDetails)}`)
+
+            contentScriptsPort.postMessage({
+                    type: "LOG_NETWORK_EVENT",
+                    eventDetails: eventDetails
+                })
+        }
+    }
+
+   
+
+
+
+
+
+}
+
+
+browser.webRequest.onBeforeRequest.addListener(logNetworkRequest ,{
+    urls: ["<all_urls>"]
+},['blocking','requestBody'])
 
