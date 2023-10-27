@@ -9,6 +9,7 @@ _LOG_UI_FLIGHT_CREATE =  function(appId){return `/api/flight/${appId}/add/`}
 _LOG_UI_FLIGHT_TOKEN_PATH = function(flightId){return `/api/flight/info/${flightId}/token/`}
 _LOG_UI_DEFAULT_USERNAME = "aianta"
 _LOG_UI_DEFAULT_PASSWORD = "01134hello"
+_LOG_UI_PROTOCOL = "https"
 
 /**
  * Odo Sight Internal constants

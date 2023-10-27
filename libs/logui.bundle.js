@@ -824,7 +824,6 @@ var LogUI = (function () {
 	      if (_typeof_1(messageStr) === 'object' && messageStr !== null) {
 	        consoleFunction("LogUI".concat(currentStateString, " @ ").concat(timeDelta, "ms > Logged object below"));
 	        consoleFunction(messageStr);
-			consoleFunction(JSON.stringify(messageStr, null, 4))
 	        return;
 	      }
 
@@ -4218,46 +4217,22 @@ var LogUI = (function () {
 
 	logUIdefaults.dispatcher = {
 	  endpoint: null,
-	  // The URL of the WebSocket endpoint to send data to.
-	  authorisationToken: null,
-	  // The string representing the authentication token to connect to the endpoint with.
-	  cacheSize: 1,
-	  // The maximum number of stored events that can be in the cache before flushing.
-	  maximumCacheSize: 1000,
-	  // When no connection is present, this is the cache size we shut down LogUI at.
-	  reconnectAttempts: 5,
-	  // The maximum number of times we should try to reconnect.
-	  reconnectAttemptDelay: 5000 // The delay (in ms) we should wait between reconnect attempts.
+	  authorizationToken: null
+	}; //TODO: Odosight does not register the WindowConnection API for this to work. Maybe fix this one day.
+	//RequiredFeatures.addFeature('WindowConnection') //Requires the WindowConnection API provided by the odo-sight extension.  
 
-	};
-	RequiredFeatures.addFeature('WebSocket');
-	ValidationSchemas.addLogUIConfigProperty('endpoint', 'string');
-	ValidationSchemas.addLogUIConfigProperty('authorisationToken', 'string');
 	var Dispatcher = (function (root) {
 	  var _public = {};
 	  var _isActive = false;
-	  var _websocket = null;
-	  var _websocketReconnectionAttempts = 0; // The total number of attempts that have been made to reconnect when the connection drops.
+	  var _windowConnection = null;
 
-	  var _websocketReconnectionReference = null; // A reference to the reconnection routine when attempting to reconnect.
-
-	  var _cache = null;
-	  _public.dispatcherType = 'websocket';
+	  _public.dispatcherType = 'odo-sight';
 
 	  _public.init = function () {
-	    Config.getConfigProperty('endpoint'); // We may restart the dispatcher in the same context.
-	    // There may still be a timer active from the previous iteration.
-	    // If so, we cancel it.
+	    _initWindowConnection();
 
-	    if (_websocketReconnectionReference) {
-	      clearInterval(_websocketReconnectionReference);
-	      _websocketReconnectionReference = null;
-	    }
-
-	    _initWebsocket();
-
-	    _cache = [];
 	    _isActive = true;
+	    root.dispatchEvent(new Event('logUIStarted'));
 	    return true;
 	  };
 
@@ -4266,20 +4241,9 @@ var LogUI = (function () {
 	      while (1) {
 	        switch (_context.prev = _context.next) {
 	          case 0:
-	            _flushCache();
-
-	            _tidyWebsocket();
-
-	            _websocketReconnectionAttempts = 0;
-
-	            if (_websocketReconnectionReference) {
-	              clearInterval(_websocketReconnectionReference);
-	            }
-
-	            _cache = null;
 	            _isActive = false;
 
-	          case 8:
+	          case 1:
 	          case "end":
 	            return _context.stop();
 	        }
@@ -4293,13 +4257,17 @@ var LogUI = (function () {
 
 	  _public.sendObject = function (objectToSend) {
 	    if (_isActive) {
-	      _cache.push(objectToSend);
-
 	      Helpers.console(objectToSend, 'Dispatcher', false);
+	      var data = JSON.parse(JSON.stringify(objectToSend));
 
-	      if (_cache.length >= logUIdefaults.dispatcher.cacheSize) {
-	        _flushCache();
-	      }
+	      _windowConnection.send({
+	        type: 'LOGUI_EVENT',
+	        payload: data
+	      }, function (response) {
+	        console.log('Event dispatch acknowledged by odo-sight.');
+	      }, function (error) {
+	        console.error('Error dispatching event to odo-sight!', JSON.stringify(error, null, 4));
+	      });
 
 	      return;
 	    }
@@ -4307,216 +4275,31 @@ var LogUI = (function () {
 	    throw Error('You cannot send a message when LogUI is not active.');
 	  };
 
-	  var _initWebsocket = function _initWebsocket() {
-	    console.log("endpoint: ", Config.getConfigProperty('endpoint'))
-		_websocket = new WebSocket('ws://localhost:8000/ws/endpoint/', ['ws']);
-		
+	  var _initWindowConnection = function _initWindowConnection() {
+	    _windowConnection = new WindowConnection('logui.bundle.js', 'main.js');
 
+	    _windowConnection.on('LOGUI_HANDSHAKE_SUCCESS', function (request) {
+	      return new Promise(function (resolve, reject) {
+	        var _sessionData = request.sessionData;
+	        Config.sessionData.setID(_sessionData.sessionID);
+	        Config.sessionData.setTimestamps(new Date(_sessionData['sessionStartTimestamp']), new Date(_sessionData['libraryStartTimestamp']));
+	        root.dispatchEvent(new Event('logUIStarted'));
+	        resolve('dispatched DOM Event logUIStarted');
+	      });
+	    });
 
-	    _websocket.addEventListener('close', _callbacks.onClose);
-
-	    _websocket.addEventListener('error', _callbacks.onError);
-
-	    _websocket.addEventListener('message', _callbacks.onMessage);
-
-	    _websocket.addEventListener('open', _callbacks.onOpen);
-	  };
-
-	  var _tidyWebsocket = function _tidyWebsocket() {
-	    if (_websocket) {
-	      Helpers.console("The connection to the server is being closed.", 'Dispatcher', false);
-
-	      _websocket.removeEventListener('close', _callbacks.onClose);
-
-	      _websocket.removeEventListener('error', _callbacks.onError);
-
-	      _websocket.removeEventListener('message', _callbacks.onMessage);
-
-	      _websocket.removeEventListener('open', _callbacks.onOpen);
-
-	      _websocket.close();
-
-	      _websocket = null;
-	    }
-	  };
-
-	  var _attemptReconnect = function _attemptReconnect() {
-	    if (_websocket && !_websocketReconnectionReference) {
-	      _tidyWebsocket();
-
-	      _websocketReconnectionReference = setInterval(function () {
-	        if (_isActive) {
-	          if (_websocket) {
-	            switch (_websocket.readyState) {
-	              case 0:
-	                return;
-
-	              case 1:
-	                Helpers.console("The connection to the server has been (re-)established.", 'Dispatcher', false);
-	                clearInterval(_websocketReconnectionReference);
-	                _websocketReconnectionAttempts = 0;
-	                _websocketReconnectionReference = null;
-	                return;
-
-	              default:
-	                Helpers.console("The connection to the server has failed; we are unable to restart.", 'Dispatcher', true);
-
-	                _tidyWebsocket();
-
-	                return;
-	            }
-	          } // Counter incremented here to consider the first attempt.
-
-
-	          _websocketReconnectionAttempts += 1;
-
-	          if (_websocketReconnectionAttempts == logUIdefaults.dispatcher.reconnectAttempts) {
-	            Helpers.console("We've maxed out the number of permissible reconnection attempts. We must stop here.", 'Dispatcher', true);
-	            clearInterval(_websocketReconnectionReference);
-	            root.dispatchEvent(new Event('logUIShutdownRequest'));
-	            throw Error('LogUI attempted to reconnect to the server but failed to do so. LogUI is now stopping. Any events not sent to the server will be lost.');
-	          }
-
-	          Helpers.console("(Re-)connection attempt ".concat(_websocketReconnectionAttempts, " of ").concat(logUIdefaults.dispatcher.reconnectAttempts), 'Dispatcher', false);
-
-	          _initWebsocket();
-	        } else {
-	          // Here, the instance of LogUI has already been stopped.
-	          // So just silently clear the timer -- and reset the referene back to null.
-	          clearInterval(_websocketReconnectionReference);
-	          _websocketReconnectionReference = null;
-	        }
-	      }, logUIdefaults.dispatcher.reconnectAttemptDelay);
-	    }
-	  };
-
-	  var _callbacks = {
-	    onClose: function onClose(event) {
-	      Helpers.console("The connection to the server has been closed.", 'Dispatcher', false);
-	      var errorMessage = 'Something went wrong with the connection to the LogUI server.';
-
-	      switch (event.code) {
-	        case 4001:
-	          errorMessage = 'A bad message was sent to the LogUI server. LogUI is shutting down.';
-	          break;
-
-	        case 4002:
-	          errorMessage = 'The client sent a bad application handshake to the server. LogUI is shutting down.';
-	          break;
-
-	        case 4003:
-	          errorMessage = 'The LogUI server being connected to does not support version 0.5.4a of the client. LogUI is shutting down.';
-	          break;
-
-	        case 4004:
-	          errorMessage = 'A bad authentication token was provided to the LogUI server. LogUI is shutting down.';
-	          break;
-
-	        case 4005:
-	          errorMessage = 'The LogUI server did not recognise the domain that this client is being started from. LogUI is shutting down.';
-	          break;
-
-	        case 4006:
-	          errorMessage = 'The LogUI client sent an invalid session ID to the server. LogUI is shutting down.';
-	          Config.sessionData.clearSessionIDKey();
-	          break;
-
-	        case 4007:
-	          errorMessage = 'The LogUI server is not accepting new connections for this application at present.';
-	          break;
-
-	        default:
-	          errorMessage = "".concat(errorMessage, " The recorded error code was ").concat(event.code, ". LogUI is shutting down.");
-	          break;
-	      }
-
-	      switch (event.code) {
-	        case 1000:
-	          console.log('clean connection closure!');
-	          break;
-
-	        case 1006:
-	          _attemptReconnect();
-
-	          break;
-
-	        default:
-	          root.dispatchEvent(new Event('logUIShutdownRequest'));
-	          throw Error(errorMessage);
-	      }
-	    },
-	    onError: function onError(event) {},
-	    onMessage: function onMessage(receivedMessage) {
-	      var messageObject = JSON.parse(receivedMessage.data);
-
-	      switch (messageObject.type) {
-	        case 'handshakeSuccess':
-	          Helpers.console("The handshake was successful. Hurray! The server is listening.", 'Dispatcher', false);
-	          Config.sessionData.setID(messageObject.payload.sessionID);
-
-	          if (messageObject.payload.newSessionCreated) {
-	            Config.sessionData.setTimestamps(new Date(messageObject.payload.clientStartTimestamp), new Date(messageObject.payload.clientStartTimestamp));
-	          } else {
-	            Config.sessionData.setTimestamps(new Date(messageObject.payload.clientStartTimestamp), new Date());
-
-	            if (_cache.length >= logUIdefaults.dispatcher.cacheSize) {
-	              _flushCache();
-	            }
-	          } // ADD CALL HERE
-
-
-	          root.dispatchEvent(new Event('logUIStarted'));
-	          break;
-	      }
-	    },
-	    onOpen: function onOpen(event) {
-	      var sessionID = Config.sessionData.getSessionIDKey();
-	      Helpers.console("The connection to the server has been established.", 'Dispatcher', false);
-	      var payload = {
-	        clientVersion: '0.5.4a',
-	        authorisationToken: Config.getConfigProperty('authorisationToken'),
-	        pageOrigin: root.location.origin,
-	        userAgent: root.navigator.userAgent,
-	        clientTimestamp: new Date()
-	      };
-
-	      if (sessionID) {
-	        payload.sessionID = Config.sessionData.getSessionIDKey();
-	      }
-
-	      Helpers.console("The LogUI handshake has been sent.", 'Dispatcher', false);
-
-	      _websocket.send(JSON.stringify(_getMessageObject('handshake', payload)));
-	    }
-	  };
-
-	  var _getMessageObject = function _getMessageObject(messageType, payload) {
-	    return {
-	      sender: 'logUIClient',
-	      type: messageType,
-	      payload: payload
-	    };
-	  };
-
-	  var _flushCache = function _flushCache() {
-	    if (!_websocket || _websocket.readyState != 1) {
-	      if (_cache.length >= logUIdefaults.dispatcher.maximumCacheSize) {
-	        Helpers.console("The cache has grown too large, with no connection to clear it. LogUI will now stop; any cached events will be lost.", 'Dispatcher', false);
+	    _windowConnection.on('LOGUI_CACHE_OVERFLOW', function (request) {
+	      return new Promise(function (resolve, reject) {
 	        root.dispatchEvent(new Event('logUIShutdownRequest'));
-	      }
+	        resolve('dispatched DOM Event logUIShutdownRequest');
+	      });
+	    });
 
-	      return;
-	    }
-
-	    var payload = {
-	      length: _cache.length,
-	      items: _cache
-	    };
-
-	    _websocket.send(JSON.stringify(_getMessageObject('logEvents', payload)));
-
-	    Helpers.console("Cache flushed.", 'Dispatcher', false);
-	    _cache = [];
+	    _windowConnection.send({
+	      type: 'START_DISPATCHER',
+	      authToken: Config.getConfigProperty('authorisationToken'),
+	      endpoint: Config.getConfigProperty('endpoint')
+	    });
 	  };
 
 	  return _public;
@@ -4620,6 +4403,53 @@ var LogUI = (function () {
 	  return createObject;
 	})();
 
+	function _arrayLikeToArray$2(arr, len) {
+	  if (len == null || len > arr.length) len = arr.length;
+
+	  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+	    arr2[i] = arr[i];
+	  }
+
+	  return arr2;
+	}
+
+	var arrayLikeToArray = _arrayLikeToArray$2;
+
+	function _arrayWithoutHoles(arr) {
+	  if (Array.isArray(arr)) return arrayLikeToArray(arr);
+	}
+
+	var arrayWithoutHoles = _arrayWithoutHoles;
+
+	function _iterableToArray(iter) {
+	  if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter);
+	}
+
+	var iterableToArray = _iterableToArray;
+
+	function _unsupportedIterableToArray$2(o, minLen) {
+	  if (!o) return;
+	  if (typeof o === "string") return arrayLikeToArray(o, minLen);
+	  var n = Object.prototype.toString.call(o).slice(8, -1);
+	  if (n === "Object" && o.constructor) n = o.constructor.name;
+	  if (n === "Map" || n === "Set") return Array.from(o);
+	  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return arrayLikeToArray(o, minLen);
+	}
+
+	var unsupportedIterableToArray = _unsupportedIterableToArray$2;
+
+	function _nonIterableSpread() {
+	  throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+	}
+
+	var nonIterableSpread = _nonIterableSpread;
+
+	function _toConsumableArray(arr) {
+	  return arrayWithoutHoles(arr) || iterableToArray(arr) || unsupportedIterableToArray(arr) || nonIterableSpread();
+	}
+
+	var toConsumableArray = _toConsumableArray;
+
 	/*
 	    Some utility/shared functions for the custom LogUI Event handlers, used by odo-bot.
 	    
@@ -4641,6 +4471,14 @@ var LogUI = (function () {
 	var _dom_properties_ext = [].concat(_dom_properties);
 
 	_dom_properties_ext.push('outerHTML', 'outerText');
+	/**
+	 * An extended list of dom properties to log when including input elements in a custom event.
+	 */
+
+
+	var _dom_properties_input_ext = toConsumableArray(_dom_properties_ext);
+
+	_dom_properties_input_ext.push('value', 'valueAsDate', 'valueAsNumber', 'willValidate');
 	/**
 	 * A function that computes the XPath of a given element
 	 * https://stackoverflow.com/questions/3454526/how-to-calculate-the-xpath-position-of-an-element-using-javascript
@@ -4673,11 +4511,11 @@ var LogUI = (function () {
 	  return paths.length ? "/" + paths.join("/") : null;
 	};
 
-	function _createForOfIteratorHelper$2(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$2(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$2(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$3(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$2(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$2(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$2(o, minLen); }
+	function _unsupportedIterableToArray$3(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$3(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$3(o, minLen); }
 
-	function _arrayLikeToArray$2(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$3(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var click = (function (root) {
 	  var _handler = {};
 	  _handler.browserEvents = ['click']; //This doesn't seem to matter...
@@ -5045,11 +4883,11 @@ var LogUI = (function () {
 		'default': sessionStorage$1
 	});
 
-	function _createForOfIteratorHelper$3(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$3(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$3(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$4(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$3(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$3(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$3(o, minLen); }
+	function _unsupportedIterableToArray$4(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$4(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$4(o, minLen); }
 
-	function _arrayLikeToArray$3(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$4(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 
 	var _dirImport = {};
 
@@ -5159,11 +4997,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$4(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$4(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$4(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$5(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$4(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$4(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$4(o, minLen); }
+	function _unsupportedIterableToArray$5(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$5(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$5(o, minLen); }
 
-	function _arrayLikeToArray$4(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$5(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var formSubmission = (function (root) {
 	  var _handler = {};
 	  _handler.browserEvents = ['submit'];
@@ -5262,13 +5100,27 @@ var LogUI = (function () {
 	    //Get the root element
 	    var rootElement = browserEvent.composedPath().find(function (e) {
 	      return e.localName === 'html';
-	    });
+	    }); //Get the ValidityState object
+	    //https://developer.mozilla.org/en-US/docs/Web/API/ValidityState
+
+	    var validityState = browserEvent.target.validity;
 	    var returnObject = {
 	      type: browserEvent.type,
 	      xpath: getElementTreeXPath(browserEvent.target),
 	      element: JSON.stringify(browserEvent.target, _dom_properties_ext),
 	      //The actual input element should include extended properties.
-	      domSnapshot: JSON.stringify(rootElement, _root_dom_properties)
+	      domSnapshot: JSON.stringify(rootElement, _root_dom_properties),
+	      validity_badInput: validityState.badInput,
+	      validity_customError: validityState.customError,
+	      validity_patternMismatch: validityState.patternMismatch,
+	      validity_rangeOverflow: validityState.rangeOverflow,
+	      validity_rangeUnderflow: validityState.rangeUnderflow,
+	      validity_stepMismatch: validityState.stepMismatch,
+	      validity_tooLong: validityState.tooLong,
+	      validity_tooShort: validityState.tooShort,
+	      validity_typeMismatch: validityState.typeMismatch,
+	      validity_valid: validityState.valid,
+	      validity_valueMissing: validityState.valueMissing
 	    };
 
 	    if (trackingConfig.hasOwnProperty('name')) {
@@ -5496,6 +5348,24 @@ var LogUI = (function () {
 	    var packageObject = getBasicPackageObject();
 	    packageObject.eventType = 'customEvent';
 	    packageObject.eventDetails = eventDetails;
+	    /**
+	     * @author Alexandru Ianta
+	     * For odo sight, when network events are captured as custom events, we want to make sure
+	     * the network event timestamp is the timestamp being used as the eventTimestamp. 
+	     * Ideally these would both be the same or very similar, but when something like
+	     * a POST request is made just before the page unloads, LogUI will lose that event
+	     * because it will unload from the page before the network request can be captured. 
+	     * Odo-sight will send the network event to LogUI again once it is re-loaded on the 
+	     * next page, but at this point sinificant amounts of time have passed. So to keep events
+	     * ordered properly, for network request events, we overwrite timestamps.eventTimestamp 
+	     * with the one provided in the eventDetails. 
+	     * 
+	     */
+
+	    if (eventDetails.name === 'NETWORK_EVENT' && eventDetails.timeStamp !== undefined) {
+	      packageObject.timestamps.eventTimestamp = new Date(eventDetails.timeStamp);
+	    }
+
 	    Dispatcher.sendObject(packageObject);
 	  };
 
@@ -5533,11 +5403,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$5(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$5(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$5(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$6(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$5(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$5(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$5(o, minLen); }
+	function _unsupportedIterableToArray$6(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$6(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$6(o, minLen); }
 
-	function _arrayLikeToArray$5(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$6(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	RequiredFeatures.addFeature('WeakMap');
 	var DELAY_TIME = 50;
 	var scrollable = (function (root) {
@@ -5953,11 +5823,11 @@ var LogUI = (function () {
 	  return 0;
 	};
 
-	function _createForOfIteratorHelper$6(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$6(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$6(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$7(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$6(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$6(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$6(o, minLen); }
+	function _unsupportedIterableToArray$7(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$7(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$7(o, minLen); }
 
-	function _arrayLikeToArray$6(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$7(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var DOMHandlerHelpers = (function (root) {
 	  var _public = {};
 	  _public.generators = {
@@ -6236,11 +6106,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$7(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$7(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$7(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$8(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$7(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$7(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$7(o, minLen); }
+	function _unsupportedIterableToArray$8(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$8(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$8(o, minLen); }
 
-	function _arrayLikeToArray$7(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$8(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var Binder = (function (root) {
 	  var _public = {};
 
@@ -6714,11 +6584,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$8(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$8(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$8(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$9(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$8(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$8(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$8(o, minLen); }
+	function _unsupportedIterableToArray$9(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$9(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$9(o, minLen); }
 
-	function _arrayLikeToArray$8(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$9(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var MutationObserverController = (function (root) {
 	  var _public = {};
 	  var _mutationObserver = null;
@@ -6815,11 +6685,11 @@ var LogUI = (function () {
 	  return _public;
 	})(window);
 
-	function _createForOfIteratorHelper$9(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$9(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$9(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$a(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$9(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$9(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$9(o, minLen); }
+	function _unsupportedIterableToArray$a(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$a(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$a(o, minLen); }
 
-	function _arrayLikeToArray$9(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$a(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var DOMHandler = (function (root) {
 	  var _public = {};
 
@@ -6926,7 +6796,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Mon Feb 06 2023 11:47:22 GMT-0700 (Mountain Standard Time)';
+	  _public.buildDate = 'Wed Oct 25 2023 10:45:21 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  /* API calls */
 

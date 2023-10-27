@@ -1,4 +1,30 @@
 // UTILITY FUNCTIONS
+
+/**
+ * Post a message to a port, retrying if an error occurs. 
+ * This is helpful when capturing network requests that occur just
+ * before a page in unloaded. 
+ * 
+ * @param {*} message the message to send.
+ * @param {*} port the port to send the message on.
+  */
+function postWithRetry(port, message){
+    return recursivePostWithRetry(port, message, 0)
+}
+
+function recursivePostWithRetry(port, message, attempt){
+    console.log(`[Attempt: ${attempt} ] Trying to postMessage...`)
+    try{
+        port.postMessage(message)
+    }catch(error){
+        console.log(error)
+        if(attempt <= 10){ //Limit to 10 retries
+            setTimeout(()=>recursivePostWithRetry(port,message, attempt+1), 15000)
+        }
+    }
+}
+
+
 //https://stackoverflow.com/questions/679915/how-do-i-test-for-an-empty-javascript-object
 function isEmptyObject(obj){
     return obj // 👈 null and undefined check

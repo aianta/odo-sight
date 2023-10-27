@@ -42,6 +42,9 @@ let conn = new PortConnection(CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME, 'main.js'
 console.log("Establishing connection to page scripts!")
 let pageConn = new WindowConnection('main.js', 'handlerMagic.js')
 
+console.log("Establishing connection to logUI client")
+let logUIConn = new WindowConnection('main.js', 'logui.bundle.js')
+
 function updateFlightToken(data){
     return new Promise((resolve, reject)=>{
        
@@ -115,7 +118,26 @@ conn.on('START_LOGUI', function(data){
     
 })
 
+/**
+ * Handle LOGUI_HANDSHAKE_SUCCESS by relaying it. 
+ */
+conn.on('LOGUI_HANDSHAKE_SUCCESS', function(data){
+    return new Promise((resolve,reject)=>{
+        //TODO: the way utils.js handles data._ids may cause bugs here. 
+        logUIConn.send(data, (response)=>resolve(response), (err)=>reject(err))
+    })
+})
 
+
+/**
+ * Handle LOGUI_CACHE_OVERFLOW by relaying it.
+ */
+conn.on('LOGUI_CACHE_OVERFLOW', function(data){
+    return new Promise((resolve,reject)=>{
+        //TODO: the way utils.js handles data._ids may cause bugs here. 
+        logUIConn.send(data, (response)=>resolve(response), (err)=>reject(err))
+    })
+})
 
 // Register our tab id with our background script
 // browser.runtime.sendMessage({
@@ -139,4 +161,14 @@ conn.send({
 }, (err)=>{
     console.log('Error getting token, no LogUI for now...')
     console.error(err)
+})
+
+//Relay to background.js
+logUIConn.on('LOGUI_EVENT', function(data){
+    conn.send(data)
+})
+
+//Relay to background.js
+logUIConn.on('START_DISPATCHER', function(data){
+    conn.send(data)
 })

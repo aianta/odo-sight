@@ -7,13 +7,13 @@
         {
             "matches": ["*://localhost/*"],
             "js": ["scripts/globalThis.js","/scripts/constants.js", "/scripts/utils.js", "scripts/logUIConfig.js","scripts/main.js"]
-
+            
         }
     ],
     "permissions": ["storage","webRequest", "webRequestBlocking", "webRequestFilterResponse"],
     "devtools_page": "devtools.html",
     "background":{
-        "scripts": ["/libs/jquery-3.6.4.min.js","/scripts/constants.js","/scripts/utils.js","/libs/axios.min.js","/scripts/background.js"]
+        "scripts": ["/libs/jquery-3.6.4.min.js","/scripts/constants.js","/scripts/utils.js","/libs/axios.min.js", "/scripts/websocketDispatcher.js" , "/scripts/background.js"]
     },
     "action":{
         "default_icon":{

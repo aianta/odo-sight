@@ -136,6 +136,42 @@ globalThis.getLocalJWT = getLocalJWT
 setStatus('logui-status', 'green')
 //Handlers
 
+function handleJWTError(err){
+    console.log('got here')
+    if(err.err_msg === 'ERR_NETWORK'){ //This can happen if the LogUI server is using a self-signed certificate. 
+        //If it is a self signed cert problem, display a link leading to an https page for the logUI server,
+        //and prompt the user to click it and accept the cert. 
+        const selfSignedLinkTarget = `${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}`
+        
+        //Hide the main frame
+        $('#main-frame').addClass('hidden').removeClass('visible')
+
+        //Generate the https link
+        $('#self-signed-link')
+            .attr('href', selfSignedLinkTarget)
+            .attr('target', '_blank')
+            .text(selfSignedLinkTarget)
+        
+        //Display the error message
+        $('#self-signed-ssl-msg-box')
+            .removeClass('hidden')
+            .addClass('visible')
+
+        //Set a time out to hide the error message and display the main frame
+        setTimeout(()=>{
+            //Display the main frame again. 
+            $('#main-frame').addClass('visible').removeClass('hidden')
+            
+            $('#self-signed-ssl-msg-box')
+                .removeClass('visible')
+                .addClass('hidden')
+            
+            
+        }, 20000) //20 seconds.
+
+    }
+}
+
 function JWTTokenHandler(response){
     console.log("Got response from LogUI server:", response)        
     browser.storage.local.set({logui_jwt: response.token})
@@ -189,7 +225,9 @@ function start(){
                 type:"GET_JWT_TOKEN",
                 username: _LOG_UI_DEFAULT_USERNAME,
                 password: _LOG_UI_DEFAULT_PASSWORD
-            }, JWTTokenHandler)
+            }, JWTTokenHandler,
+                handleJWTError
+            )
         }
     )
 }

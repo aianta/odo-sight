@@ -138,10 +138,18 @@ function setupPortHandler(port, logicHandler){
  */
 function handleContentScriptRequest(data){
     switch(data.type){
+        case "START_DISPATCHER":
+            LogUIDispatcher.init( data.endpoint, data.authToken, contentScriptsPort)
+            break;
+        case "LOGUI_EVENT":
+            //TODO: invoke LogUI Websocket dispatcher
+            LogUIDispatcher.sendObject(data.payload)
+            break;
         case "GET_FLIGHT_TOKEN":
             return getFlightToken()
         case "NETWORK_EVENT_LOGGED":
             controlsPort.postMessage(data)
+            break;
         case "SET_FLIGHT_TOKEN":
             //These requests are actually just responses to controls.html, send them along
             controlsPort.postMessage(data)
@@ -162,6 +170,8 @@ function handleControlRequest(data){
             return getJWT(data.username, data.password)
                 .then(function(response){
                     return Promise.resolve(response.data)  
+                },function(err){
+                    return Promise.reject(err.code)
                 })
         case "GET_APP_LIST":
             return getLogUIAppList().then(function(response){
@@ -225,8 +235,9 @@ function scrapeMongo(){
  */
 function getJWT(username, password){
     return new Promise((resolve, reject)=>{
-        console.log(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`)
-        axios.post(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`, {
+        console.log(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`)
+
+        axios.post(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`, {
             username: username,
             password: password
         }).then(function(response){
@@ -240,7 +251,7 @@ function getJWT(username, password){
 }
 
 function getLogUIAppList(){
-    return axios.get(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_APP_LIST_PATH}`)
+    return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_APP_LIST_PATH}`)
         .then(function(response){
             return Promise.resolve(response)
         })
@@ -251,7 +262,7 @@ function getLogUIAppList(){
 }
 
 function getFlightList(appId){
-    return axios.get(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_LIST_PATH}${appId}/`)
+    return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_LIST_PATH}${appId}/`)
         .then(function(response){
             return Promise.resolve(response)
         }).catch(function(err){
@@ -261,7 +272,7 @@ function getFlightList(appId){
 }
 
 function createFlight(appId, flightName, flightDomain){
-    return axios.post(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE(appId)}`,{
+    return axios.post(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE(appId)}`,{
         flightName: flightName,
         fqdn: flightDomain
     }).then(function(response){
@@ -276,7 +287,7 @@ function getFlightToken(){
     return getSelectedFlight()
     .catch(err=>Promise.reject("No selected flight, cannot fetch token!"))
     .then(function(flight){
-        return axios.get(`http://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
+        return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
         .then(function(response){
             return Promise.resolve(response.data)
         }).catch(function(error){
@@ -290,7 +301,7 @@ function getFlightToken(){
 axios.interceptors.request.use(function(request){
     //If this is a call to the LogUI server other than the one used to retrieve the JWT token itself. 
     if(request.url.includes(_LOG_UI_SERVER_HOST) &&
-        request.url !== `http://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`){
+        request.url !== `${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`){
 
         console.log("Injecting Auth token for " + request.url)
 
@@ -310,7 +321,7 @@ axios.interceptors.request.use(function(request){
 function logNetworkRequest(record){
 
     var _fields = [
-        "timeStamp",
+        "timeStamp", //The sky will fall if this is not included.
         "requestId",
         "method", 
         "requestBody",
@@ -370,10 +381,15 @@ function logNetworkRequest(record){
         
             console.log(`eventDetails: ${JSON.stringify(eventDetails)}`)
 
-            contentScriptsPort.postMessage({
-                    type: "LOG_NETWORK_EVENT",
-                    eventDetails: eventDetails
-                })
+            // postWithRetry(contentScriptsPort, {
+            //     type: "LOG_NETWORK_EVENT",
+            //     eventDetails: eventDetails
+            // })
+
+            // contentScriptsPort.postMessage({
+            //         type: "LOG_NETWORK_EVENT",
+            //         eventDetails: eventDetails
+            //     })
         }
     }
 
