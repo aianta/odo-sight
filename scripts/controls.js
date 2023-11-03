@@ -1,90 +1,27 @@
 console.log('controls.js says hi')
 
-//Set up persistent communication with background.js
-let conn = new PortConnection(CONTROLS_TO_BACKGROUND_PORT_NAME, 'controls.js')
-
-conn.on('NETWORK_EVENT_LOGGED', function(data){
-    setStatus('network-events-status', 'green')
-    return Promise.resolve({msg:'ack'})
-})
-
-$('#start-btn').click(function(event){
-    setStatus('logui-status', 'orange')
-    conn.send({
-        type: 'START_LOGUI'
-    },
-    function(response){
-        $('#session_id').text(response.sessionId)
-        setStatus('logui-status', 'green')
-    },
-    function(error){
-        if(error.err_msg.includes('already')){
-            setStatus('logui-status', 'green')
-        }else{
-            setStatus('logui-status', 'red')
-            showError(error.err_msg)
-        }
-    })
-})
-
-$('#stop-btn').click(function(event){
-    setStatus('logui-status',  'orange')
-    conn.send({
-        type:'STOP_LOGUI'
-    },
-    function(response){
-        setStatus('logui-status', 'black' )
-        $('#session_id').text('-')
-    },
-    function(error){
-        if(error.err_msg.includes('already')){
-            setStatus('logui-status', 'black')
-        }else{
-            setStatus('logui-status', 'red')
-            showError(error.err_msg)
-        }
-    }
-    )
-})
-
-
-$('#send_flight_token').click(function(event){
-    setStatus('logui-status','orange')
-    conn.send({
-        type: 'SET_FLIGHT_TOKEN'
-    }, function(response){
-        console.log('background.js reports token set.')
-        $('#session_id').text(response.sessionId)
-        setStatus('logui-status', 'green')
-    },
-    (error)=>{
-        setStatus('logui-status', 'red')
-        showError(error.err_msg)
-    })
-})
 
 /**
  * Handler to invoke mongo scrape procedure
  */
+
+
 $('#scrape_mongo_btn').click(function(event){
-    conn.send({
-        type:'SCRAPE_MONGO'
-    }, 
-    function(response){
-        $('#scrape-ok').addClass('visible')
+    stateManager.selectedFlight()
+        .then((flight)=>services.scrapeMongo(flight)
+        .then(_=>{
+            $('#scrape-ok').addClass('visible')
             setTimeout(()=>{
                 $('#scrape-ok').removeClass('visible').addClass('hidden')
             }, 5000)
-    },
-    function(response){
-        showError(response.err_msg)
+        }, (err)=>{
+            showError(err)
 
-        $('#scrape-error').addClass('visible')
-        setTimeout(()=>{
-            $('#scrape-error').removeClass('visible').addClass('hidden')
-        }, 5000)
-    }
-    )
+            $('#scrape-error').addClass('visible')
+            setTimeout(()=>{
+                $('#scrape-error').removeClass('visible').addClass('hidden')
+            }, 5000)
+        }))
 })
 
 /**
@@ -95,50 +32,29 @@ $('#new-flight-btn').click(function(event){
     let btn = event.delegateTarget
     let appId = btn.getAttribute('app-id')
     let flightName = $('#new-flight-name').val()
-    conn.send({
-        type: 'CREATE_FLIGHT',
-        appId: appId,
-        flightName: flightName,
-        flightDomain: _DEFAULT_FLIGHT_DOMAIN
-    }, function(response){
-        console.log('new-flight-button handler got 2: ', response)
 
-        conn.send({
-            type: 'GET_FLIGHT_LIST',
-            appId: appId
-        }, function(flights){
-            console.log('new-flight-button handler got 3: ', flights)
-            let createdFlight = flights.find(flight=>flight.name === flightName)
-            console.log('created flight', createdFlight)
-            browser.storage.local.set({selected_flight: createdFlight})
-            backToMainFrame()
-            setStatus('logui-status', 'orange')
-            conn.send({
-                type:'SET_FLIGHT_TOKEN'
-            }, (response)=>{
-                setStatus('logui-status', 'green')
-                $('#session_id').text(response.sessionId);
-            }, (error)=>{
-                setStatus('logui-status', 'red')
-                showError(error.err_msg)
-            }
-            )
+    services.createFlight(appId, flightName, _DEFAULT_FLIGHT_DOMAIN)
+        .then(_=>services.getFlightList(appId)
+        .then((flights)=>{
+            const createdFlight = flights.find(flight=>flight.name === flightName)
+            return stateManager.selectedFlight(createdFlight)
         })
-    })
+        .then(_=>refreshUI())
+        .then(_=>services.getFlightToken())
+        .then((data)=>stateManager.flightAuthToken(data.flightAuthorisationToken)))
+        .then(_=>backToMainFrame())
+
 })
 
-//TODO: someday it may be prudent to store JWT tokens in IndexedDb...
-globalThis.getLocalJWT = getLocalJWT
 
 
 
 
-setStatus('logui-status', 'green')
 //Handlers
 
 function handleJWTError(err){
-    console.log('got here')
-    if(err.err_msg === 'ERR_NETWORK'){ //This can happen if the LogUI server is using a self-signed certificate. 
+
+    if(err.code === 'ERR_NETWORK'){ //This can happen if the LogUI server is using a self-signed certificate. 
         //If it is a self signed cert problem, display a link leading to an https page for the logUI server,
         //and prompt the user to click it and accept the cert. 
         const selfSignedLinkTarget = `${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}`
@@ -172,12 +88,8 @@ function handleJWTError(err){
     }
 }
 
-function JWTTokenHandler(response){
-    console.log("Got response from LogUI server:", response)        
-    browser.storage.local.set({logui_jwt: response.token})
-}
 
-function AppListHandler(response){
+function appListHandler(response){
     console.log("Got application list: ", response)
 
     response.forEach( function (app,index){
@@ -192,43 +104,39 @@ function AppListHandler(response){
         $(`#${app.id}-select`).button({
             icon: 'fa-solid fa-arrow-right'
         }).click( function(event){
-            conn.send({
-                type: 'GET_FLIGHT_LIST',
-                appId: app.id
-            }, function(response){
-                startFlightSelect(app, response)
-            })
+
+            stateManager.selectedApp(app) //Persist the chosen app as the selected app
+                .then(_=>services.getFlightList(app.id) //Then get the flight list for this app
+                .then((flights)=>startFlightSelect(app, flights))) //Then start flight selection UI
+
         })
     })
 }
 
 
-console.log("LOCAL JWT", getLocalJWT)
 
 function start(){
 
+
+
+
     /**
-     * On start up check to see if we have a logui_jwt token saved in local storage.
+     * On start up check to see if we have a jwt for communicating with the LogUI Server.
+     * If so, go get the app list from the LogUI server.
+     * 
+     * If no jwt exists, go fetch one from the server using the default username and password
+     * stored in constants.js. If fetching one fails, handle that error assuming it's a self-signed
+     * cert issue. 
      */
 
-    globalThis.getLocalJWT().then(
-        function(jwt){
-            //If we do, proceed to fetch our application list.
-            conn.send({
-                type: "GET_APP_LIST"
-            }, AppListHandler)
-
-        },
-        function(noJwt){
-            //If we don't have a JWT token, go fetch it.
-            conn.send({
-                type:"GET_JWT_TOKEN",
-                username: _LOG_UI_DEFAULT_USERNAME,
-                password: _LOG_UI_DEFAULT_PASSWORD
-            }, JWTTokenHandler,
+    stateManager.jwt().then(
+        (jwt)=>services.getLogUIAppList().then(appListHandler),
+        _=>services.getJWT(_LOG_UI_DEFAULT_USERNAME,_LOG_UI_DEFAULT_PASSWORD)
+            .then(
+                _=>services.getLogUIAppList().then(appListHandler),
                 handleJWTError
             )
-        }
+
     )
 }
 

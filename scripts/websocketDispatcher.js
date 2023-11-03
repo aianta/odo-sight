@@ -13,25 +13,6 @@
     @date: 2021-03-08
 */
 
-//import Config from '../config';
-//import Helpers from '../helpers';
-//import Defaults from '../defaults';
-//import RequiredFeatures from '../required';
-//import ValidationSchemas from '../validationSchemas';
-
-// Defaults.dispatcher = {
-//     endpoint: null,  // The URL of the WebSocket endpoint to send data to.
-//     authorisationToken: null,  // The string representing the authentication token to connect to the endpoint with.
-//     cacheSize: 10,  // The maximum number of stored events that can be in the cache before flushing.
-//     maximumCacheSize: 1000,  // When no connection is present, this is the cache size we shut down LogUI at.
-//     reconnectAttempts: 5,  // The maximum number of times we should try to reconnect.
-//     reconnectAttemptDelay: 5000  // The delay (in ms) we should wait between reconnect attempts.
-// };
-
-//RequiredFeatures.addFeature('WebSocket');
-
-//ValidationSchemas.addLogUIConfigProperty('endpoint', 'string');
-//ValidationSchemas.addLogUIConfigProperty('authorisationToken', 'string');
 
 var LogUIDispatcher = (function() {
     var _public = {};
@@ -46,6 +27,8 @@ var LogUIDispatcher = (function() {
     var _libraryLoadTimestamp = null;  // The time at which the dispatcher loads -- for measuring the beginning of a session more accurately.
     var _maximumCacheSize = 1000;  // When no connection is present, this is the cache size we shut down LogUI at.
     var _sessionID = null;
+    var _sessionStartTimestamp = null;
+    var _libraryStartTimestamp = null;
     var _cache = null;
     var _endpoint = null;
     var _authToken = null;
@@ -53,7 +36,37 @@ var LogUIDispatcher = (function() {
 
     _public.dispatcherType = 'websocket';
 
+    /**
+     * Executed when background.js gets 'CONNECT_DISPATCHER' message from logui.bundle.js odosightDispatcher
+     * @param {*} contentScriptsPort 
+     */
+    _public.handleClientDispatcherConnection = function(endpoint, authToken, contentScriptsPort){
+        console.log(`[LogUI Websocket Dispatcher] Handling odosightDispatcher connection request.`)
+        //If we're already active, just send the session data back to the odosightDispatcher
+        if (_public.isActive()){
+            console.log(`[LogUI Websocket Dispatcher] Connection with LogUI server already exists, sending session data.`)
+            const sessionData = {
+                sessionID: _sessionID,
+                sessionStartTimestamp: _sessionStartTimestamp,
+                libraryStartTimestamp: _libraryStartTimestamp
+            }
+
+            _contentScriptsPort.postMessage({
+                type: 'DISPATCHER_CONNECTION_SUCCESS',
+                sessionData: sessionData
+            })
+
+            return true
+        }
+
+        console.log(`[LogUI Websocket Dispatcher] Initializing connection with logUI server`)
+        //If we have not yet established a connection with the logUI server because this is a full initalization, call init now.
+        return _public.init(endpoint, authToken, contentScriptsPort)
+    }
+
     _public.init = function(endpoint, authToken, contentScriptsPort) {
+
+
         _endpoint = endpoint;
         _authToken = authToken;
         _contentScriptsPort = contentScriptsPort; // A port connection to 'main.js' and ultimately 'logui.bundle.js' via relay. Allows us to communicate with odo sight dispatcher.
@@ -89,6 +102,8 @@ var LogUIDispatcher = (function() {
 
         _cache = null;
         _isActive = false;
+        _sessionID = null;
+        stateManager.clearSessionId()
     };
 
     _public.isActive = function() {
@@ -190,7 +205,7 @@ var LogUIDispatcher = (function() {
     };
 
     var _callbacks = {
-        onClose: function(event) {
+        onClose: async function(event) {
             // Helpers.console(`The connection to the server has been closed.`, 'Dispatcher', false);
             console.error(`[LogUI Websocket Dispatcher] The connection to the server has been closed.`)
             let errorMessage = 'Something went wrong with the connection to the LogUI server.'
@@ -214,6 +229,7 @@ var LogUIDispatcher = (function() {
                 case 4006:
                     errorMessage = 'The LogUI client sent an invalid session ID to the server. LogUI is shutting down.';
                     _sessionID = null;
+                    stateManager.sessionId(null)
                     break;
                 case 4007:
                     errorMessage = 'The LogUI server is not accepting new connections for this application at present.';
@@ -238,15 +254,16 @@ var LogUIDispatcher = (function() {
 
         onError: function(event) { },
 
-        onMessage: function(receivedMessage) {
+        onMessage: async function(receivedMessage) {
             let messageObject = JSON.parse(receivedMessage.data);
 
             switch (messageObject.type) {
                 case 'handshakeSuccess':
                     //Helpers.console(`The handshake was successful. Hurray! The server is listening.`, 'Dispatcher', false);
                     console.log(`[LogUI Websocket Dispatcher] The handshake was successful. Hurray! The server is listening.`)
-                    //Config.sessionData.setID(messageObject.payload.sessionID);
                     _sessionID = messageObject.payload.sessionID
+                    
+                    await stateManager.sessionId(_sessionID)
 
                     //Prepare session data object to send to odo sight dispatcher.
                     const sessionData = {
@@ -266,6 +283,9 @@ var LogUIDispatcher = (function() {
                             _flushCache();
                         }
                     }
+
+                    _sessionStartTimestamp = new Date(sessionData['sessionStartTimestamp'])
+                    _libraryStartTimestamp = new Date(sessionData['libraryStartTimestamp'])
 
                     // ADD CALL HERE 
                     //TODO: consider signaling to odo-sight Dispatcher here.
@@ -340,5 +360,39 @@ var LogUIDispatcher = (function() {
         _cache = [];
     };
     
+
+    _public.packageCustomEvent = function(eventDetails){
+        let packageObject = _public.getBasicPackageObject()
+
+        packageObject.eventType = 'customEvent'
+        packageObject.eventDetails = eventDetails
+
+        if(_public.isActive()){ //Only send object if we're active.
+            _public.sendObject(packageObject)
+        }else{
+            console.error("I HAVE FAILED MY ONE JOB")
+        }
+
+
+    }
+
+    _public.getBasicPackageObject = function(){
+        let currentTimestamp = new Date();
+        let sessionStartTimestamp = _sessionStartTimestamp
+        let libraryStartTimestamp = _libraryStartTimestamp
+        
+        return {
+            eventType: null,
+            eventDetails: {},
+            sessionID: _sessionID,
+            timestamps: {
+                eventTimestamp: currentTimestamp,
+                sinceSessionStartMillis: currentTimestamp - sessionStartTimestamp,
+                sinceLogUILoadMillis: currentTimestamp - libraryStartTimestamp,
+            }
+            //applicationSpecificData: Config.applicationSpecificData.get(), TODO - consider supporting this feature in the future.
+        }
+    }
+
     return _public;
 })();

@@ -57,48 +57,6 @@ Node.prototype.addEventListener = function(a,b,c){
 console.log('Establishing connection with content scripts!')
 let contentScriptConn = new WindowConnection('handlerMagic.js', 'main.js')
 
-window.reportedNetworkEventLogged = false
-
-contentScriptConn.on('LOG_NETWORK_EVENT', function(request){
-  return new Promise((resolve, reject)=>{
-    if(!LogUI.isActive()){
-      reject('LogUI is not active, cannot log network request')
-    }
-    console.log(`Logging NETWORK_EVENT! ${request.eventDetails.method} - ${request.eventDetails.url}`)
-    LogUI.logCustomMessage(request.eventDetails)
-    if(!window.reportedNetworkEventLogged){
-      contentScriptConn.send({
-        type:'NETWORK_EVENT_LOGGED'
-      }, function(response){
-        window.reportedNetworkEventLogged = true
-      }, function(error){
-        console.error('Error reporting network event logged!', JSON.stringify(error, null, 4))
-      })
-    }
-  })
-})
-
-
-/**
- * Handle LogUI restart request
- */
-contentScriptConn.on('RESTART', function(request){
-  return new Promise((resolve, reject)=>{
-    if(LogUI.isActive()){
-      console.log('Stopping LogUI')
-      LogUI.stop()
-    }
-    LogUI.clearSessionID()
-    console.log(`Starting LogUI with: ${JSON.stringify(request.config, null,4)}`)
-    LogUI.init(request.config)
-    setTimeout(()=>{
-      resolve({
-        sessionId: LogUI.Config.sessionData.getSessionIDKey()
-      })
-    }, 2000)
-  })
-})
-
 /**
  * Handle LogUI start request
  */

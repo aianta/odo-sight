@@ -1,19 +1,16 @@
 console.log('controls-ui.js says hi!')
 
-// $('#logui-status').addClass('green')
-// $('#dom-effects-status').addClass('green')
-// $('#network-effects-status').addClass('green')
 
 $('#app-select-frame').addClass('hidden')
 $('#flight-select-frame').addClass('hidden')
 
 $('#start-btn').button({
-    icon: 'fa-solid fa-play green'
-})
+    icon: 'fa-solid fa-circle red'
+}).click(_=>stateManager.set('shouldRecord', true))
 
 $('#stop-btn').button({
-    icon: 'fa-solid fa-square red'
-})
+    icon: 'fa-solid fa-square black'
+}).click(_=>stateManager.set('shouldRecord', false))
 
 $('#flight-back-btn').button({
     icon: 'fa-solid fa-arrow-left'
@@ -40,10 +37,75 @@ $('#new-flight-btn').button({
     icon: "fa-solid fa-plus"
 })
 
-getSelectedFlight().then(function(selected_flight){
-    $('#flight_id').text(selected_flight.id)
-    $('#flight_name').text(selected_flight.name)
-})
+function refreshUI(){
+
+    stateManager.sessionId().then((sessionId)=>$('#session_id').text(sessionId),_=>$('#session_id').text('<no active session>'))
+
+    //Update UI as a function of whether a flight is selected or not.
+    stateManager.selectedFlight()
+    .then(function(flight){
+            //There exists a selected flight
+            $('#no-flight-instructions').addClass('hidden').removeClass('visible')
+            $('#flight-label').addClass('visible').removeClass('hidden')
+            $('#flight_id').text(flight.id)
+            $('#flight_name').text(flight.name)
+
+            //Show recording controls
+            $('#recording-controls').addClass('visible').removeClass('hidden')
+        },
+        _=>{
+            //There does not exist a selected flight
+            $('#no-flight-instructions').addClass('visible').removeClass('hidden')
+            $('#flight-label').addClass('hidden').removeClass('visible')
+
+            //Hide recording controls
+            $('#recording-controls').addClass('hidden').removeClass('visible')
+        })
+
+    //Update UI as a function of the recording state.
+    Promise.all(
+        [
+            stateManager.get('shouldRecord'),
+            stateManager.get('isRecording')
+        ]
+    ).then((values)=>{
+        const shouldRecord = values[0]
+        const isRecording = values[1]
+
+        if(shouldRecord){
+            $('#stop-recording').addClass('visible').removeClass('hidden')
+            $('#start-recording').addClass('hidden').removeClass('visible')
+            return Promise.resolve()
+        }
+
+        if(!shouldRecord){
+            $('#start-recording').addClass('visible').removeClass('hidden')
+            $('#stop-recording').addClass('hidden').removeClass('visible')
+            return Promise.resolve()
+        }
+
+        //Otherwise hide everything.
+        $('#start-recording').addClass('hidden').removeClass('visible')
+        $('#stop-recording').addClass('hidden').removeClass('visible')
+
+    })
+}
+
+refreshUI()
+
+
+function observeStateChange(changes){
+    refreshUI()
+
+    if ('sessionId' in changes){
+        $('#session_id').text(changes['sessionId'].newValue)
+    }
+    
+}
+
+browser.storage.local.onChanged.addListener(observeStateChange)
+
+
 
 
 function showError(msg){
@@ -64,10 +126,16 @@ function clearError(){
 function setStatus(statusLabel, statusValue){
     $(`#${statusLabel}`).removeClass('black').removeClass('green').removeClass('orange').removeClass('red')
     $(`#${statusLabel}`).addClass(`${statusValue}`)
+
+    if(statusLabel === 'logui-status' && statusValue === 'green'){
+        $('#stop-btn').button({disabled:false})
+    }
+
 }
 
 function startFlightSelect(app, flights){
-    console.log('startFlightSelect got ', app , flights)
+    console.log('startFlightSelect got ', app,  flights)
+
 
     $('#flight-select-frame').addClass('visible').removeClass('hidden')
     $('#app-select-frame').addClass('hidden').removeClass('visible')
@@ -98,18 +166,14 @@ function startFlightSelect(app, flights){
         $(`#${flight.id}-select`).button({
             icon: 'fa-solid fa-check'
         }).click(function(event){
-            browser.storage.local.set({selected_flight: flight})
+            
+            stateManager.selectedFlight(flight)
+                .then(_=>refreshUI())
+                .then(_=>services.getFlightToken()
+                .then((data)=>stateManager.flightAuthToken(data.flightAuthorisationToken)))
+            
             backToMainFrame()
-            setStatus('logui-status', 'orange')
-            conn.send({
-                type:'SET_FLIGHT_TOKEN'
-            }, (response)=>{
-                setStatus('logui-status', 'green')
-                $('#session_id').text(response.sessionId);
-            }, (error)=>{
-                setStatus('logui-status', 'red')
-                showError(error.err_msg)
-            })
+          
         })
     })
 
@@ -120,10 +184,10 @@ function backToMainFrame(){
     $('#flight-select-frame').addClass('hidden').removeClass('visible')
     $('#app-select-frame').addClass('hidden').removeClass('visible')
 
-    getSelectedFlight().then(function(selected_flight){
-        $('#flight_id').text(selected_flight.id)
-        $('#flight_name').text(selected_flight.name)
-    })
+    // getSelectedFlight().then(function(selected_flight){
+    //     $('#flight_id').text(selected_flight.id)
+    //     $('#flight_name').text(selected_flight.name)
+    // })
 }
 
 function startAppSelect(){

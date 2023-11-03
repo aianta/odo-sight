@@ -4275,16 +4275,26 @@ var LogUI = (function () {
 	    throw Error('You cannot send a message when LogUI is not active.');
 	  };
 
+	  function handleSessionConfig(_sessionData) {
+	    Config.sessionData.setID(_sessionData.sessionID);
+	    Config.sessionData.setTimestamps(new Date(_sessionData['sessionStartTimestamp']), new Date(_sessionData['libraryStartTimestamp']));
+	    root.dispatchEvent(new Event('logUIStarted'));
+	  }
+
 	  var _initWindowConnection = function _initWindowConnection() {
 	    _windowConnection = new WindowConnection('logui.bundle.js', 'main.js');
 
+	    _windowConnection.on('DISPATCHER_CONNECTION_SUCCESS', function (request) {
+	      return new Promise(function (resolve, reject) {
+	        handleSessionConfig(request.sessionData);
+	        resolve('got session config details.');
+	      });
+	    });
+
 	    _windowConnection.on('LOGUI_HANDSHAKE_SUCCESS', function (request) {
 	      return new Promise(function (resolve, reject) {
-	        var _sessionData = request.sessionData;
-	        Config.sessionData.setID(_sessionData.sessionID);
-	        Config.sessionData.setTimestamps(new Date(_sessionData['sessionStartTimestamp']), new Date(_sessionData['libraryStartTimestamp']));
-	        root.dispatchEvent(new Event('logUIStarted'));
-	        resolve('dispatched DOM Event logUIStarted');
+	        handleSessionConfig(request.sessionData);
+	        resolve('got session config details.');
 	      });
 	    });
 
@@ -4296,7 +4306,7 @@ var LogUI = (function () {
 	    });
 
 	    _windowConnection.send({
-	      type: 'START_DISPATCHER',
+	      type: 'CONNECT_DISPATCHER',
 	      authToken: Config.getConfigProperty('authorisationToken'),
 	      endpoint: Config.getConfigProperty('endpoint')
 	    });
@@ -6796,7 +6806,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed Oct 25 2023 10:45:21 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Thu Nov 02 2023 10:03:41 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  /* API calls */
 

@@ -6,14 +6,34 @@
     "content_scripts": [
         {
             "matches": ["*://localhost/*"],
-            "js": ["scripts/globalThis.js","/scripts/constants.js", "/scripts/utils.js", "scripts/logUIConfig.js","scripts/main.js"]
+            "js": [
+                "scripts/globalThis.js",
+                "/scripts/constants.js",
+                "/scripts/stateManager.js",
+                "/scripts/utils.js",
+                "scripts/logUIConfig.js",
+                "scripts/main.js"
+            ]
             
         }
     ],
-    "permissions": ["storage","webRequest", "webRequestBlocking", "webRequestFilterResponse"],
+    "permissions": [
+        "storage",
+        "webRequest",
+        "webRequestBlocking",
+        "webRequestFilterResponse"
+    ],
     "devtools_page": "devtools.html",
     "background":{
-        "scripts": ["/libs/jquery-3.6.4.min.js","/scripts/constants.js","/scripts/utils.js","/libs/axios.min.js", "/scripts/websocketDispatcher.js" , "/scripts/background.js"]
+        "scripts": [
+            "/libs/jquery-3.6.4.min.js",
+            "/scripts/constants.js",
+            "/scripts/utils.js",
+            "/libs/axios.min.js",
+            "/scripts/stateManager.js",
+            "/scripts/websocketDispatcher.js",
+            "/scripts/background.js"
+            ]
     },
     "action":{
         "default_icon":{
@@ -24,7 +44,13 @@
     },
     "web_accessible_resources": [
         {
-          "resources": [ "/scripts/utils.js","/scripts/handlerMagic.js",  "/libs/logui.bundle.js", "/libs/dom-effects.js", "/libs/html2canvas.min.js"],
+          "resources": [ 
+            "/scripts/utils.js",
+            "/scripts/handlerMagic.js",
+            "/libs/logui.bundle.js",
+            "/libs/dom-effects.js",
+            "/libs/html2canvas.min.js"
+        ],
           "matches": [ "*://localhost/*" ]
         }]
    

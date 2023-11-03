@@ -1,30 +1,5 @@
 // UTILITY FUNCTIONS
 
-/**
- * Post a message to a port, retrying if an error occurs. 
- * This is helpful when capturing network requests that occur just
- * before a page in unloaded. 
- * 
- * @param {*} message the message to send.
- * @param {*} port the port to send the message on.
-  */
-function postWithRetry(port, message){
-    return recursivePostWithRetry(port, message, 0)
-}
-
-function recursivePostWithRetry(port, message, attempt){
-    console.log(`[Attempt: ${attempt} ] Trying to postMessage...`)
-    try{
-        port.postMessage(message)
-    }catch(error){
-        console.log(error)
-        if(attempt <= 10){ //Limit to 10 retries
-            setTimeout(()=>recursivePostWithRetry(port,message, attempt+1), 15000)
-        }
-    }
-}
-
-
 //https://stackoverflow.com/questions/679915/how-do-i-test-for-an-empty-javascript-object
 function isEmptyObject(obj){
     return obj // 👈 null and undefined check
@@ -33,36 +8,6 @@ function isEmptyObject(obj){
 }
 
 
-
-/**
- * Returns selected flight stored in local storage.
- */
-getSelectedFlight = function(){
-    return browser.storage.local.get("selected_flight").then(
-        function(response){
-            if(!isEmptyObject(response) && response.selected_flight !== undefined){
-                return Promise.resolve(response.selected_flight)
-            }else{
-                return Promise.reject("No selected_flight value exists in local storage")
-            }
-        }
-    )
-}
-
-/**
- * Returns any JWT token stored locally.  
- */
-getLocalJWT = function(){
-    return browser.storage.local.get("logui_jwt").then(
-        function(response){
-            if (!isEmptyObject(response) && response.logui_jwt !== undefined){
-                return Promise.resolve(response.logui_jwt)
-            }else{
-                return Promise.reject("No logui JWT token in local storage")
-            }
-        }
-    )
-}
 
 /**
  * Cannot use crypto.randomUUID() as that won't work in content scripts 
@@ -264,9 +209,9 @@ class WindowConnection extends AbstractConnection {
          * 
          */
         
-        console.log(`[${this.origin}] Got event from ${msg.source}: ${JSON.stringify(msg.data, null, 4)}`)
-        console.log(`[${this.origin}] msg.source === window: ${msg.source === window}`)
-        console.log(`[${this.origin}] msg?.data?.direction === ${this.counterparty}: ${msg?.data?.direction === this.counterparty}`)
+        // console.log(`[${this.origin}] Got event from ${msg.source}: ${JSON.stringify(msg.data, null, 4)}`)
+        // console.log(`[${this.origin}] msg.source === window: ${msg.source === window}`)
+        // console.log(`[${this.origin}] msg?.data?.direction === ${this.counterparty}: ${msg?.data?.direction === this.counterparty}`)
         if(
             msg.source === window &&
             msg?.data?.direction === this.counterparty

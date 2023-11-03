@@ -14,10 +14,12 @@ _LOG_UI_PROTOCOL = "https"
 /**
  * Odo Sight Internal constants
  */
-CONTROLS_TO_BACKGROUND_PORT_NAME = "controls<->background"
 CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME = "content scripts<->background"
-DEVTOOLS_TO_BACKGROUND_PORT_NAME = "devtools<->background"
 
+/**
+ * Odo Sight state
+ */
+_ODO_SIGHT_VALID_STATE_VERISON = "0.1"
 
 /**
  * Odo Sight Option defaults

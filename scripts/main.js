@@ -20,19 +20,17 @@ utilsScript.src = browser.runtime.getURL('/scripts/utils.js')
 logUIScript.src = browser.runtime.getURL('/libs/logui.bundle.js')
 handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
 domeffectsScript.src = browser.runtime.getURL('/libs/dom-effects.js')
-// html2canvasScript.src = browser.runtime.getURL('/libs/html2canvas.min.js')
 
 domeffectsScript.onload = function(){this.remove();};
 utilsScript.onload = function(){this.remove();};
 logUIScript.onload = function(){this.remove();};
 handlerMagicScript.onload = function(){this.remove();};
-// html2canvasScript.onload = function(){this.remove();};
+
 
 (document.head || document.documentElement).appendChild(utilsScript);
 (document.head || document.documentElement).appendChild(logUIScript);
 (document.head || document.documentElement).appendChild(handlerMagicScript);
 (document.head || document.documentElement).appendChild(domeffectsScript);
-// (document.head || document.documentElement).appendChild(html2canvasScript);
 
 
 console.log('Establishing connection to background script!')
@@ -44,79 +42,6 @@ let pageConn = new WindowConnection('main.js', 'handlerMagic.js')
 
 console.log("Establishing connection to logUI client")
 let logUIConn = new WindowConnection('main.js', 'logui.bundle.js')
-
-function updateFlightToken(data){
-    return new Promise((resolve, reject)=>{
-       
-        
-        console.log(`Updating LogUI config with new authorization token for flight ${data.flightID}`)
-        _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = data.flightAuthorisationToken
-        pageConn.send({
-            config: _odo_sight_LogUI_config,
-            type: 'RESTART'
-        }, (response)=>{
-            console.log('Got response from page scripts!')
-            resolve(response)
-        }, (err)=>{
-            console.log('Got error from page scripts!')
-            reject(err)
-        })
-        
-
-    })
-}
-
-/**
- * Handle a LOG_NETWORK_EVENT request.
- * 
- * Just pass it along to the page.
- */
-conn.on('LOG_NETWORK_EVENT', function(data){
-    pageConn.send(data)
-})
-
-/**
- * Handle setting of flight token by control.html
- */
-conn.on('SET_FLIGHT_TOKEN', function(data){
-    console.log('Got request to set flight token!')
-    console.log(data)
-
-    return updateFlightToken(data)
-})
-
-/**
- * Handle stop logui request
- */
-conn.on('STOP_LOGUI', function(data){
-    return new Promise((resolve, reject)=>{
-        pageConn.send({
-            type: 'STOP'
-        }, (response)=>{
-            resolve(response)
-        },(err)=>{
-            reject(err)
-        })
-    })
-})
-
-/**
- * Handle start log ui request
- */
-conn.on('START_LOGUI', function(data){
-    return new Promise((resolve, reject)=>{
-        pageConn.send({
-            type: 'START',
-            config: _odo_sight_LogUI_config
-        }, (response)=>{
-            resolve(response)
-        }, (err)=>{
-            reject(err)
-        })
-       
-    })
-    
-})
 
 /**
  * Handle LOGUI_HANDSHAKE_SUCCESS by relaying it. 
@@ -139,36 +64,67 @@ conn.on('LOGUI_CACHE_OVERFLOW', function(data){
     })
 })
 
-// Register our tab id with our background script
-// browser.runtime.sendMessage({
-//     _data: 'some text'
-// })
-
-/**
- * Pass network event logged status update over to backround scripts.
- * Final destination should be controls.js to update the UI.
- */
-pageConn.on('NETWORK_EVENT_LOGGED', function(data){
-    conn.send(data)
-})
 
 
-
-conn.send({
-    type:'GET_FLIGHT_TOKEN'
-}, (token)=>{
-    updateFlightToken(token)
-}, (err)=>{
-    console.log('Error getting token, no LogUI for now...')
-    console.error(err)
-})
 
 //Relay to background.js
 logUIConn.on('LOGUI_EVENT', function(data){
-    conn.send(data)
+    conn.send(data, _=>console.log('event sent to background.js dispatcher'), (err)=>console.error(err))
 })
 
 //Relay to background.js
-logUIConn.on('START_DISPATCHER', function(data){
-    conn.send(data)
+logUIConn.on('CONNECT_DISPATCHER', function(data){
+    conn.send(data, _=>console.log('forwarded CONNECT_DISPATCHER to background.js'), (err)=>console.error(err))
+})
+
+
+function patchFlightToken(newToken){
+    _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = newToken
+}
+
+function startLogUI(){
+    pageConn.send({
+        type: 'START',
+        config: _odo_sight_LogUI_config
+    }, (response)=>{
+        console.log('LogUI client started!')
+        stateManager.set('isRecording', true)
+    }, (err)=>{
+        console.error('LogUI client falied to start!')
+    })
+}
+
+function observeStateChange(changes){
+
+    if ('flightAuthToken' in changes){
+        //If a change is observed to the flight auth token, patch the logUI client config with the new token.
+        patchFlightToken(changes['flightAuthToken'].newValue)
+    }
+
+    //If the new 'shouldRecord' value is true, start the LogUI client
+    if ('shouldRecord' in changes && changes['shouldRecord'].newValue){
+        startLogUI()
+    }
+
+    //If the new 'shouldRecord' value is false, stop the LogUI client
+    if('shouldRecord' in changes && !changes['shouldRecord'].newValue){
+        pageConn.send({
+            type: 'STOP'
+        }, (response)=>{
+            console.log('LogUI client has stopped!')
+            stateManager.set('isRecording', false)
+        },(err)=>{
+            console.error('LogUI client failed to stop!')
+            // stateManager.set('isRecording', true)
+        })
+    }
+}
+
+browser.storage.local.onChanged.addListener(observeStateChange)
+
+//Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
+stateManager.shouldRecord().then((shouldRecord)=>{
+    if(shouldRecord){
+        startLogUI()
+    }
 })

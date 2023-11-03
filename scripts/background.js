@@ -1,30 +1,14 @@
 /**
  * @author Alexandru Ianta
- * 
- * 
- * background.js facilitates communication between different 'scopes' or zones 
- * of the extension. 
- * 
- * Currently the following interactions flow through background.js:
- *
- * 
- * 1. [controls.html]<->background.js<->[LogUI Server]: Many instances of this flow
- * exist. It is used to communicate with the LogUI server and facilitate quality of 
- * life functionality. 
- * 
- * 2. [Content Scripts]<->background.js<->[controls.html]: Used to communicate flight auth tokens and 
- * relay commands from controls.html
- * 
- * 3. [networkRequestLogger]->background.js->[main.js]->[handlerMagic.js]: Used to log
- * network events.
- * 
- * All flows are facilitated by 2-way persistant connections through the 
- * communications API provided by utils.js.
+ * TODO: new write up
  * 
  */
 
+//Bind init function to appropriate runtime events. 
+browser.runtime.onStartup.addListener(stateManager.init)
+browser.runtime.onInstalled.addListener(stateManager.init)
 
-console.log("backround.js says hi, axios?")
+
 
 //Setup communication with controls.html & content scripts
 let controlsPort;
@@ -34,18 +18,10 @@ let contentScriptsPort;
 function connected(p){
     console.log('connected port:', p)
     switch(p.name){
-        case CONTROLS_TO_BACKGROUND_PORT_NAME:
-            controlsPort = p;
-            setupPortHandler(controlsPort, handleControlRequest)
-            break;
         case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
             contentScriptsPort = p;
             setupPortHandler(contentScriptsPort, handleContentScriptRequest)
             break;
-        // case DEVTOOLS_TO_BACKGROUND_PORT_NAME:
-        //     devtoolsPort = p;
-        //     setupPortHandler(devtoolsPort, handleDevtoolsRequest)
-        //     break;
 
     }
 }
@@ -114,23 +90,6 @@ function setupPortHandler(port, logicHandler){
 }
 
 
-
-
-
-
-// /**
-//  * Handles requests originating from the devtools scripts
-//  * @param {Object} data 
-//  */
-// function handleDevtoolsRequest(data){
-//     switch(data.type){
-//         case "LOG_NETWORK_EVENT":
-//             contentScriptsPort.postMessage(data)
-//             break;
-//     }
-// }
-
-
 /**
  * Handles request originating from the content scripts
  * @param {Object} data 
@@ -138,185 +97,22 @@ function setupPortHandler(port, logicHandler){
  */
 function handleContentScriptRequest(data){
     switch(data.type){
-        case "START_DISPATCHER":
-            LogUIDispatcher.init( data.endpoint, data.authToken, contentScriptsPort)
+        case "CONNECT_DISPATCHER":
+            console.log('executing CONNECT_DISPATCHER')
+            stateManager.flightAuthToken().then((authToken)=>LogUIDispatcher.handleClientDispatcherConnection(data.endpoint, authToken, contentScriptsPort))
             break;
         case "LOGUI_EVENT":
-            //TODO: invoke LogUI Websocket dispatcher
             LogUIDispatcher.sendObject(data.payload)
-            break;
-        case "GET_FLIGHT_TOKEN":
-            return getFlightToken()
-        case "NETWORK_EVENT_LOGGED":
-            controlsPort.postMessage(data)
-            break;
-        case "SET_FLIGHT_TOKEN":
-            //These requests are actually just responses to controls.html, send them along
-            controlsPort.postMessage(data)
+
+            if(data.payload.eventType === 'statusEvent' && data.payload.eventDetails.type === 'stopped'){
+                LogUIDispatcher.stop()
+            }
+
             break;
     }
 }
 
-/**
- * Handles requests originating from the controls scripts.
- * @param {Object} data 
- * @returns 
- */
-function handleControlRequest(data){
 
-    switch(data.type){
-        case "GET_JWT_TOKEN": 
-            //Fetch the JWT
-            return getJWT(data.username, data.password)
-                .then(function(response){
-                    return Promise.resolve(response.data)  
-                },function(err){
-                    return Promise.reject(err.code)
-                })
-        case "GET_APP_LIST":
-            return getLogUIAppList().then(function(response){
-                return Promise.resolve(response.data)
-            })
-        case "GET_FLIGHT_LIST":
-            return getFlightList(data.appId).then(function(response){
-                return Promise.resolve(response.data)
-            })
-        case "CREATE_FLIGHT":
-            return createFlight(data.appId, data.flightName, data.flightDomain).then(function(response){
-                return Promise.resolve(response.data)
-            })
-        case "SCRAPE_MONGO":
-            return scrapeMongo()
-        case 'STOP_LOGUI':
-            contentScriptsPort.postMessage(data)
-            break;
-        case 'START_LOGUI':
-            contentScriptsPort.postMessage(data)
-            break;
-        case "SET_FLIGHT_TOKEN": 
-            getFlightToken().then((flight_token)=>{
-                payload = {
-                    _id: data._id,
-                    type:'SET_FLIGHT_TOKEN',
-                    ...flight_token
-                }
-                contentScriptsPort.postMessage(payload)
-            })
-            break;
-            
-    }
-
-}
-
-//AXIOS requests
-
-function scrapeMongo(){
-    return getSelectedFlight()
-    .catch(function(err){
-        return Promise.reject("No selected flight, cannot scrape!")
-    })
-    .then(function(flight){
-        return axios.post(`http://${_ODO_BOT_SIGHT_SERVER_HOST}${_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH}`, {
-            flightName: flight.name,
-            flightId: flight.id
-        }).then(function(response){
-            return Promise.resolve({
-                statusCode: response.status
-            })
-        })
-    })
-}
-
-
-/**
- * Fetches a JWT from the LogUI server.
- * @param {String} username LogUI server username
- * @param {String} password LogUI server password
- */
-function getJWT(username, password){
-    return new Promise((resolve, reject)=>{
-        console.log(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`)
-
-        axios.post(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`, {
-            username: username,
-            password: password
-        }).then(function(response){
-            resolve(response)
-        }).catch(function(err){
-            console.error( "Error fetching JWT token: ",err)
-            reject(err)
-        })
-    })
-
-}
-
-function getLogUIAppList(){
-    return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_APP_LIST_PATH}`)
-        .then(function(response){
-            return Promise.resolve(response)
-        })
-        .catch(function(err){
-            console.error("Error fetching application list: ", err)
-            return Promise.reject(err)
-        })
-}
-
-function getFlightList(appId){
-    return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_LIST_PATH}${appId}/`)
-        .then(function(response){
-            return Promise.resolve(response)
-        }).catch(function(err){
-            console.error("Error fetching flight list: ", err)
-            return Promise.reject(err)
-        })
-}
-
-function createFlight(appId, flightName, flightDomain){
-    return axios.post(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_CREATE(appId)}`,{
-        flightName: flightName,
-        fqdn: flightDomain
-    }).then(function(response){
-        return Promise.resolve(response)
-    }).catch(function(err){
-        console.error("Error creating flight: ", err)
-        return Promise.reject(err)
-    })
-}
-
-function getFlightToken(){
-    return getSelectedFlight()
-    .catch(err=>Promise.reject("No selected flight, cannot fetch token!"))
-    .then(function(flight){
-        return axios.get(`${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
-        .then(function(response){
-            return Promise.resolve(response.data)
-        }).catch(function(error){
-            console.error("Error getting flight token: ", err)
-            return Promise.reject(err)
-        })
-    })
-}
-
-//Inject auth token for LogUI Server requests
-axios.interceptors.request.use(function(request){
-    //If this is a call to the LogUI server other than the one used to retrieve the JWT token itself. 
-    if(request.url.includes(_LOG_UI_SERVER_HOST) &&
-        request.url !== `${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}${_LOG_UI_JWT_PATH}`){
-
-        console.log("Injecting Auth token for " + request.url)
-
-        //Embed the jwt token in the request header.
-        return getLocalJWT().then(function(jwt){
-            request.headers.Authorization = `jwt ${jwt}`
-            return Promise.resolve(request)
-        })
-        .catch(function(err){
-            console.error("Tried to make authorized call to LogUI server but didn't have JWT token available!", err)
-        });
-    }
-
-    return request
-})
 
 function logNetworkRequest(record){
 
@@ -377,32 +173,13 @@ function logNetworkRequest(record){
             }
             
             
-
-        
-            console.log(`eventDetails: ${JSON.stringify(eventDetails)}`)
-
-            // postWithRetry(contentScriptsPort, {
-            //     type: "LOG_NETWORK_EVENT",
-            //     eventDetails: eventDetails
-            // })
-
-            // contentScriptsPort.postMessage({
-            //         type: "LOG_NETWORK_EVENT",
-            //         eventDetails: eventDetails
-            //     })
+            LogUIDispatcher.packageCustomEvent(eventDetails)
+            
         }
     }
 
-   
-
-
-
-
-
 }
-
 
 browser.webRequest.onBeforeRequest.addListener(logNetworkRequest ,{
     urls: ["<all_urls>"]
 },['blocking','requestBody'])
-

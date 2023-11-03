@@ -14,6 +14,10 @@
     color: red
 }
 
+.grey {
+    color: gray
+}
+
 .orange {
     color: orange
 }
@@ -85,4 +89,9 @@
     border: solid rgb(245, 80, 80) 2px;
     background-color:rgb(245, 185, 185);
     padding:5px;
+}
+
+.spread-container{
+    display: flex;
+    justify-content: space-between;
 }

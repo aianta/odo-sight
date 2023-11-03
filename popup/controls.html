@@ -40,7 +40,22 @@
     </div>
     <div id="main-frame">
       <div>
-        <h2>Status</h2>
+        <div class="spread-container">
+          <span id="no-flight-instructions">To begin, select a flight to record sessions for:</span>
+          <span id="flight-label">Selected Flight:</span><span id="flight_name"></span>
+          <span id="edit_flight_btn"></span>
+        </div>
+        <div id="recording-controls">
+          <span id="start-recording"><span id="start-btn"></span><span>Start recording</span></span>
+          <span id="stop-recording"><span id="stop-btn"></span><span>Stop recording</span></span>
+        </div>  
+        <div class="stats-entry">
+          SessionID:<span id="session_id">[dummy value]</span>
+        </div>
+        <div class="flight-stats stats-entry">
+          FlightID:<span id="flight_id">[dummy value]</span>
+        </div>
+        <!-- <h2>Status</h2>
         <div>
           <span><i id="sight-support-server-status" class="fa-solid fa-circle"></i></span>
           Odo Sight Support Server Connection
@@ -62,16 +77,18 @@
         <div class="flight-stats stats-entry">
           Flight Name:<span id="flight_name">[dummy value]</span>
         </div>
-        <div class="stats-entry">
-          SessionID:<span id="session_id">[dummy value]</span>
+
+
+      </div> -->
+      <div class="spread-container">
+        <div>
+          <span id="start-btn"></span>
+          <span id="stop-btn"></span>
         </div>
-        <div class="flight-stats stats-entry">
-          FlightID:<span id="flight_id">[dummy value]</span><span id="edit_flight_btn"></span><span id="send_flight_token"></span>
-        </div>
-      </div>
-      <div>
-        <span id="start-btn"></span>
-        <span id="stop-btn"></span>
+        <!-- <div>
+          <span id="edit_flight_btn"></span>
+          <span id="send_flight_token"></span>
+        </div> -->
       </div>
       <div class="scrape-container">
         <h2 id="scrape_mongo_btn">Scrape Mongo</h2>
@@ -88,8 +105,11 @@
     <script src="/libs/fontawesome.js"></script>
     <script src="/libs/jquery-3.6.4.min.js"></script>
     <script src="/libs/jquery-ui.min.js"></script>
-    <script src="/scripts/utils.js"></script>
+    <script src="/libs/axios.min.js"></script>
     <script src="/scripts/constants.js"></script>
+    <script src="/scripts/stateManager.js"></script>
+    <script src="/scripts/services.js"></script>
+    <script src="/scripts/utils.js"></script>
     <script src="./controls-ui.js"></script>
     <script src="/scripts/controls.js"></script>
 </body>
