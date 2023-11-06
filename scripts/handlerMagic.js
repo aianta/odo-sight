@@ -1,11 +1,11 @@
 
 
 //https://stackoverflow.com/questions/4634013/javascript-sleep
-function sleep(ms){
-  var start = new Date().getTime(), expire = start + ms;
-  while (new Date().getTime() < expire) { }
-  return;
-}
+// function sleep(ms){
+//   var start = new Date().getTime(), expire = start + ms;
+//   while (new Date().getTime() < expire) { }
+//   return;
+// }
 
 
 /**
@@ -53,44 +53,3 @@ Node.prototype.addEventListener = function(a,b,c){
 
 
 }
-
-// console.log('Establishing connection with content scripts!')
-
-// const contentScriptConn = new WindowConnection('handlerMagic.js', 'main.js')
-
-/**
- * Handle LogUI start request
- */
-// contentScriptConn.on('START', function(request){
-//   return new Promise((resolve, reject)=>{
-//     if(LogUI.isActive()){
-//       console.log('LogUI is already active!')
-//       reject("LogUI is already active!")
-//     }
-//     LogUI.init(request.config)
-//     setTimeout(()=>{
-//       resolve({
-//         sessionId: LogUI.Config.sessionData.getSessionIDKey()
-//       })
-//     })
-
-//   })
-// })
-
-
-// /**
-//  * Handle LogUI stop request
-//  */
-
-// contentScriptConn.on('STOP', function(request){
-//   return new Promise((resolve,reject)=>{
-//     if(!LogUI.isActive()){
-//       console.log('LogUI is already stopped!')
-//       reject('LogUI is already stopped!')
-//     }else{
-//       LogUI.stop()
-//       resolve({msg:"LogUI stopped!"})
-//     }
-//   })
-// })
-

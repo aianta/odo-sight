@@ -51,10 +51,6 @@ var stateManager = (function(){
     }
 
 
-
-
-
-
     _public.selectedFlight = function(flight){
         if(flight === undefined){
             return _public.get('selectedFlight')

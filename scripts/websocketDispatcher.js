@@ -86,8 +86,6 @@ var LogUIDispatcher = (function() {
             _cache.push(objectToSend);
 
 
-            //Helpers.console(objectToSend, 'Dispatcher', false);
-            
             if (_cache.length >= _cacheSize) {
                 _flushCache();
             }
@@ -109,7 +107,6 @@ var LogUIDispatcher = (function() {
 
     var _tidyWebsocket = function() {
         if (_websocket) {
-            //Helpers.console(`The connection to the server is being closed.`, 'Dispatcher', false);
             console.log(`[LogUI Websocket Dispatcher] The connection to the server is being closed.`)
 
             _websocket.removeEventListener('close', _callbacks.onClose);
@@ -133,7 +130,6 @@ var LogUIDispatcher = (function() {
                             case 0:
                                 return;
                             case 1:
-                                //Helpers.console(`The connection to the server has been (re-)established.`, 'Dispatcher', false);
                                 console.log(`[LogUI Websocket Dispatcher] The connection to the server has been (re-)established.`)
                                 clearInterval(_websocketReconnectionReference);
                                 _websocketReconnectionAttempts = 0;
@@ -141,7 +137,6 @@ var LogUIDispatcher = (function() {
 
                                 return;
                             default:
-                                //Helpers.console(`The connection to the server has failed; we are unable to restart.`, 'Dispatcher', true);
                                 console.error(`[LogUI Websocket Dispatcher] The connection to the server has failed; we are unable to restart.`)
                                 _tidyWebsocket();
                                 return;
@@ -152,16 +147,13 @@ var LogUIDispatcher = (function() {
                     _websocketReconnectionAttempts += 1;
 
                     if (_websocketReconnectionAttempts == _maxWebsocketReconnectionAttempts) {
-                        //Helpers.console(`We've maxed out the number of permissible reconnection attempts. We must stop here.`, 'Dispatcher', true);
                         console.log(`[LogUI Websocket Dispatcher] We've maxed out the number of permissible reconnection attempts. We must stop here.`)
 
                         clearInterval(_websocketReconnectionReference);
-                        //root.dispatchEvent(new Event('logUIShutdownRequest'));
                         throw Error('LogUI attempted to reconnect to the server but failed to do so. LogUI is now stopping. Any events not sent to the server will be lost.');
 
                     }
                     
-                    //Helpers.console(`(Re-)connection attempt ${_websocketReconnectionAttempts} of ${Defaults.dispatcher.reconnectAttempts}`, 'Dispatcher', false);
                     console.warn(`[LogUI Websocket Dispatcher] (Re-)connection attempt ${_websocketReconnectionAttempts} of ${_maxWebsocketReconnectionAttempts}`)
                     _initWebsocket();
                 }
@@ -179,7 +171,7 @@ var LogUIDispatcher = (function() {
 
     var _callbacks = {
         onClose: async function(event) {
-            // Helpers.console(`The connection to the server has been closed.`, 'Dispatcher', false);
+
             console.error(`[LogUI Websocket Dispatcher] The connection to the server has been closed.`)
             let errorMessage = 'Something went wrong with the connection to the LogUI server.'
 
@@ -240,7 +232,8 @@ var LogUIDispatcher = (function() {
 
                     //Prepare session data object to send to odo sight dispatcher.
                     const sessionData = {
-                        sessionID: _sessionID
+                        sessionID: _sessionID,
+                        fresh: true
                     }
 
                     if (messageObject.payload.newSessionCreated) {
@@ -261,11 +254,8 @@ var LogUIDispatcher = (function() {
                     _sessionStartTimestamp = new Date(sessionData['sessionStartTimestamp'])
                     _libraryStartTimestamp = new Date(sessionData['libraryStartTimestamp'])
 
-                    // ADD CALL HERE 
                     stateManager.sessionData(sessionData).then(_=>stateManager.sessionReady(true))
-                    
-
-                    //TODO: consider signaling to odo-sight Dispatcher here.
+                
 
                     break;
             }
@@ -273,9 +263,6 @@ var LogUIDispatcher = (function() {
 
         onOpen: function(event) {
             _websocketSuccessfulReconnections += 1;
-            //let sessionID = Config.sessionData.getSessionIDKey();
-
-            //Helpers.console(`The connection to the server has been established.`, 'Dispatcher', false);
             console.log(`[LogUI Websocket Dispatcher] The connection to the server has been established.`)
 
             let payload = {
@@ -290,7 +277,6 @@ var LogUIDispatcher = (function() {
                 payload.sessionID = _sessionID;
             }
 
-            //Helpers.console(`The LogUI handshake has been sent.`, 'Dispatcher', false);
             console.log(`[LogUI Websocket Dispatcher] The LogUI handshake has been sent.`)
             _websocket.send(JSON.stringify(_getMessageObject('handshake', payload)));
         },
@@ -308,7 +294,6 @@ var LogUIDispatcher = (function() {
     var _flushCache = function() {
         if (!_websocket || _websocket.readyState != 1) {
             if (_cache.length >= _maximumCacheSize) {
-                //Helpers.console(`The cache has grown too large, with no connection to clear it. LogUI will now stop; any cached events will be lost.`, 'Dispatcher', false);
                 console.warn(`[LogUI Websocket Dispatcher] The cache has grown too large, with no connection to clear it. LogUI will now stop; any cached events will be lost.`)
                 
                 //TODO: send shutdown request to odosight dispatcher. 
@@ -324,7 +309,7 @@ var LogUIDispatcher = (function() {
         };
 
         _websocket.send(JSON.stringify(_getMessageObject('logEvents', payload)));
-        //Helpers.console(`Cache flushed.`, 'Dispatcher', false);
+
         console.log(`[LogUI Websocket Dispatcher] Cache flushed.`)
 
         _cache = [];

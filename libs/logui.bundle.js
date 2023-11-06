@@ -4228,20 +4228,46 @@ var LogUI = (function () {
 	  _public.dispatcherType = 'odo-sight';
 
 	  _public.init = function () {
-	    _initWindowConnection();
+	    if (!_isActive) {
+	      root.addEventListener('message', handleMessage);
+	      root.postMessage({
+	        origin: 'logui.bundle.js',
+	        type: 'GET_SESSION_INFO'
+	      });
+	    }
 
 	    _isActive = true;
 	    return true;
 	  };
+
+	  function handleMessage(event) {
+	    var _event$data;
+
+	    if (event.source === root && (event === null || event === void 0 ? void 0 : (_event$data = event.data) === null || _event$data === void 0 ? void 0 : _event$data.origin) === 'main.js') {
+	      console.log("odosightDispatcher got ".concat(event.data.type, " message."));
+
+	      switch (event.data.type) {
+	        case "LOGUI_CACHE_OVERFLOW":
+	          root.dispatchEvent(new Event('logUIShutdownRequest'));
+	          break;
+
+	        case "SESSION_INFO":
+	          console.log("got session info! ".concat(JSON.stringify(event.data.sessionData, null, 4)));
+	          handleSessionConfig(event.data.sessionData);
+	          break;
+	      }
+	    }
+	  }
 
 	  _public.stop = /*#__PURE__*/asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee() {
 	    return regenerator.wrap(function _callee$(_context) {
 	      while (1) {
 	        switch (_context.prev = _context.next) {
 	          case 0:
+	            root.removeEventListener('message', handleMessage);
 	            _isActive = false;
 
-	          case 1:
+	          case 2:
 	          case "end":
 	            return _context.stop();
 	        }
@@ -4261,19 +4287,7 @@ var LogUI = (function () {
 	        origin: 'logui.bundle.js',
 	        type: 'LOGUI_EVENT',
 	        payload: data
-	      }); // _windowConnection.send(
-	      //     {
-	      //         type: 'LOGUI_EVENT',
-	      //         payload: data
-	      //     },
-	      //     function(response){
-	      //         console.log('Event dispatch acknowledged by odo-sight.')
-	      //     },
-	      //     function(error){
-	      //         console.error('Error dispatching event to odo-sight!', JSON.stringify(error, null, 4))
-	      //     }
-	      // )
-
+	      });
 	      return;
 	    }
 
@@ -4283,55 +4297,13 @@ var LogUI = (function () {
 	  function handleSessionConfig(_sessionData) {
 	    Config.sessionData.setID(_sessionData.sessionID);
 	    Config.sessionData.setTimestamps(new Date(_sessionData['sessionStartTimestamp']), new Date(_sessionData['libraryStartTimestamp']));
-	    root.dispatchEvent(new Event('logUIStarted'));
+	    console.log('sessionData');
+	    console.log(_sessionData);
+
+	    if (_sessionData.fresh) {
+	      root.dispatchEvent(new Event('logUIStarted'));
+	    }
 	  }
-
-	  var _initWindowConnection = function _initWindowConnection() {
-	    root.addEventListener('message', function (event) {
-	      var _event$data;
-
-	      if (event.source === this.window && (event === null || event === void 0 ? void 0 : (_event$data = event.data) === null || _event$data === void 0 ? void 0 : _event$data.origin) === 'main.js') {
-	        console.log("odosightDispatcher got ".concat(event.data.type, " message."));
-
-	        switch (event.data.type) {
-	          case "LOGUI_CACHE_OVERFLOW":
-	            root.dispatchEvent(new Event('logUIShutdownRequest'));
-	            break;
-
-	          case "SESSION_INFO":
-	            handleSessionConfig(event.data.sessionData);
-	            break;
-	        }
-	      }
-	    });
-	    root.postMessage({
-	      origin: 'logui.bundle.js',
-	      type: 'GET_SESSION_INFO'
-	    }); // _windowConnection = new WindowConnection('logui.bundle.js', 'main.js')
-	    // _windowConnection.on('DISPATCHER_CONNECTION_SUCCESS', function(request){
-	    //     return new Promise((resolve,reject)=>{
-	    //         handleSessionConfig(request.sessionData)
-	    //         resolve('got session config details.')
-	    //     })
-	    // })
-	    // _windowConnection.on('LOGUI_HANDSHAKE_SUCCESS', function(request){
-	    //     return new Promise((resolve,reject)=>{
-	    //         handleSessionConfig(request.sessionData)
-	    //         resolve('got session config details.')
-	    //     })
-	    // })
-	    // _windowConnection.on('LOGUI_CACHE_OVERFLOW', function(request){
-	    //     return new Promise((resolve,reject)=>{
-	    //         root.dispatchEvent(new Event('logUIShutdownRequest'))
-	    //         resolve('dispatched DOM Event logUIShutdownRequest')
-	    //     })
-	    // })
-	    // _windowConnection.send({
-	    //     type: 'CONNECT_DISPATCHER',
-	    //     authToken: Config.getConfigProperty('authorisationToken'),
-	    //     endpoint: Config.getConfigProperty('endpoint')
-	    // },_=>console.log('Dispatcher started!'), (err)=>console.error(err))
-	  };
 
 	  return _public;
 	})(window);
@@ -6827,7 +6799,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Mon Nov 06 2023 10:23:08 GMT-0700 (Mountain Standard Time)';
+	  _public.buildDate = 'Mon Nov 06 2023 13:04:35 GMT-0700 (Mountain Standard Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */

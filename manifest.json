@@ -11,7 +11,6 @@
                 "/scripts/constants.js",
                 "/scripts/stateManager.js",
                 "scripts/logUIConfig.js",
-                "scripts/utils.js",
                 "scripts/main.js"
             ]
             
@@ -27,7 +26,6 @@
         "scripts": [
             "/libs/jquery-3.6.4.min.js",
             "/scripts/constants.js",
-            "/scripts/utils.js",
             "/libs/axios.min.js",
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
@@ -44,7 +42,6 @@
     "web_accessible_resources": [
         {
           "resources": [ 
-            "/scripts/utils.js",
             "/scripts/handlerMagic.js",
             "/libs/logui.bundle.js",
             "/libs/dom-effects.js",
