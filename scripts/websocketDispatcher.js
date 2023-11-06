@@ -32,45 +32,15 @@ var LogUIDispatcher = (function() {
     var _cache = null;
     var _endpoint = null;
     var _authToken = null;
-    var _contentScriptsPort = null;
 
     _public.dispatcherType = 'websocket';
 
-    /**
-     * Executed when background.js gets 'CONNECT_DISPATCHER' message from logui.bundle.js odosightDispatcher
-     * @param {*} contentScriptsPort 
-     */
-    _public.handleClientDispatcherConnection = function(endpoint, authToken, contentScriptsPort){
-        console.log(`[LogUI Websocket Dispatcher] Handling odosightDispatcher connection request.`)
-        //If we're already active, just send the session data back to the odosightDispatcher
-        if (_public.isActive()){
-            console.log(`[LogUI Websocket Dispatcher] Connection with LogUI server already exists, sending session data.`)
-            const sessionData = {
-                sessionID: _sessionID,
-                sessionStartTimestamp: _sessionStartTimestamp,
-                libraryStartTimestamp: _libraryStartTimestamp
-            }
 
-            _contentScriptsPort.postMessage({
-                type: 'DISPATCHER_CONNECTION_SUCCESS',
-                sessionData: sessionData
-            })
-
-            return true
-        }
-
-        console.log(`[LogUI Websocket Dispatcher] Initializing connection with logUI server`)
-        //If we have not yet established a connection with the logUI server because this is a full initalization, call init now.
-        return _public.init(endpoint, authToken, contentScriptsPort)
-    }
-
-    _public.init = function(endpoint, authToken, contentScriptsPort) {
+    _public.init = function(endpoint, authToken) {
 
 
         _endpoint = endpoint;
         _authToken = authToken;
-        _contentScriptsPort = contentScriptsPort; // A port connection to 'main.js' and ultimately 'logui.bundle.js' via relay. Allows us to communicate with odo sight dispatcher.
-
         //Config.getConfigProperty('endpoint');
 
         // We may restart the dispatcher in the same context.
@@ -84,6 +54,7 @@ var LogUIDispatcher = (function() {
         _initWebsocket();
 
         _cache = [];
+
         _isActive = true;
         return true;
     };
@@ -113,6 +84,8 @@ var LogUIDispatcher = (function() {
     _public.sendObject = function(objectToSend) {
         if (_isActive) {
             _cache.push(objectToSend);
+
+
             //Helpers.console(objectToSend, 'Dispatcher', false);
             
             if (_cache.length >= _cacheSize) {
@@ -278,6 +251,7 @@ var LogUIDispatcher = (function() {
                         //Config.sessionData.setTimestamps(new Date(messageObject.payload.clientStartTimestamp), new Date());
                         sessionData['sessionStartTimestamp'] = messageObject.payload.clientStartTimestamp
                         sessionData['libraryStartTimestamp'] = Date.now()
+                        
 
                         if (_cache.length >= _cacheSize) {
                             _flushCache();
@@ -288,12 +262,11 @@ var LogUIDispatcher = (function() {
                     _libraryStartTimestamp = new Date(sessionData['libraryStartTimestamp'])
 
                     // ADD CALL HERE 
+                    stateManager.sessionData(sessionData).then(_=>stateManager.sessionReady(true))
+                    
+
                     //TODO: consider signaling to odo-sight Dispatcher here.
-                    _contentScriptsPort.postMessage({
-                        type: 'LOGUI_HANDSHAKE_SUCCESS',
-                        sessionData: sessionData
-                    })
-                    //root.dispatchEvent(new Event('logUIStarted'));
+
                     break;
             }
         },
@@ -339,10 +312,7 @@ var LogUIDispatcher = (function() {
                 console.warn(`[LogUI Websocket Dispatcher] The cache has grown too large, with no connection to clear it. LogUI will now stop; any cached events will be lost.`)
                 
                 //TODO: send shutdown request to odosight dispatcher. 
-                //root.dispatchEvent(new Event('logUIShutdownRequest'));
-                _contentScriptsPort.postMessage({
-                    type: 'LOGUI_CACHE_OVERFLOW'
-                })
+                stateManager.eventCacheOverflow(true)
             }
 
             return;
@@ -394,5 +364,22 @@ var LogUIDispatcher = (function() {
         }
     }
 
+    _public.handleStateChange = function(changes){
+        if('shouldRecord' in changes && changes['shouldRecord'].newValue){
+            Promise.all([
+                stateManager.endpoint(),
+                stateManager.flightAuthToken()
+            ]).then((values)=>{
+                const endpoint = values[0]
+                const authToken = values[1]
+                _public.init(endpoint, authToken)
+            })
+
+        }
+    }
+
     return _public;
 })();
+
+
+browser.storage.local.onChanged.addListener(LogUIDispatcher.handleStateChange)

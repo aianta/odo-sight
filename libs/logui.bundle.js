@@ -4224,7 +4224,6 @@ var LogUI = (function () {
 	var Dispatcher = (function (root) {
 	  var _public = {};
 	  var _isActive = false;
-	  var _windowConnection = null;
 
 	  _public.dispatcherType = 'odo-sight';
 
@@ -4232,7 +4231,6 @@ var LogUI = (function () {
 	    _initWindowConnection();
 
 	    _isActive = true;
-	    root.dispatchEvent(new Event('logUIStarted'));
 	    return true;
 	  };
 
@@ -4259,15 +4257,22 @@ var LogUI = (function () {
 	    if (_isActive) {
 	      Helpers.console(objectToSend, 'Dispatcher', false);
 	      var data = JSON.parse(JSON.stringify(objectToSend));
-
-	      _windowConnection.send({
+	      window.postMessage({
+	        origin: 'logui.bundle.js',
 	        type: 'LOGUI_EVENT',
 	        payload: data
-	      }, function (response) {
-	        console.log('Event dispatch acknowledged by odo-sight.');
-	      }, function (error) {
-	        console.error('Error dispatching event to odo-sight!', JSON.stringify(error, null, 4));
-	      });
+	      }); // _windowConnection.send(
+	      //     {
+	      //         type: 'LOGUI_EVENT',
+	      //         payload: data
+	      //     },
+	      //     function(response){
+	      //         console.log('Event dispatch acknowledged by odo-sight.')
+	      //     },
+	      //     function(error){
+	      //         console.error('Error dispatching event to odo-sight!', JSON.stringify(error, null, 4))
+	      //     }
+	      // )
 
 	      return;
 	    }
@@ -4282,34 +4287,50 @@ var LogUI = (function () {
 	  }
 
 	  var _initWindowConnection = function _initWindowConnection() {
-	    _windowConnection = new WindowConnection('logui.bundle.js', 'main.js');
+	    root.addEventListener('message', function (event) {
+	      var _event$data;
 
-	    _windowConnection.on('DISPATCHER_CONNECTION_SUCCESS', function (request) {
-	      return new Promise(function (resolve, reject) {
-	        handleSessionConfig(request.sessionData);
-	        resolve('got session config details.');
-	      });
-	    });
+	      if (event.source === this.window && (event === null || event === void 0 ? void 0 : (_event$data = event.data) === null || _event$data === void 0 ? void 0 : _event$data.origin) === 'main.js') {
+	        console.log("odosightDispatcher got ".concat(event.data.type, " message."));
 
-	    _windowConnection.on('LOGUI_HANDSHAKE_SUCCESS', function (request) {
-	      return new Promise(function (resolve, reject) {
-	        handleSessionConfig(request.sessionData);
-	        resolve('got session config details.');
-	      });
-	    });
+	        switch (event.data.type) {
+	          case "LOGUI_CACHE_OVERFLOW":
+	            root.dispatchEvent(new Event('logUIShutdownRequest'));
+	            break;
 
-	    _windowConnection.on('LOGUI_CACHE_OVERFLOW', function (request) {
-	      return new Promise(function (resolve, reject) {
-	        root.dispatchEvent(new Event('logUIShutdownRequest'));
-	        resolve('dispatched DOM Event logUIShutdownRequest');
-	      });
+	          case "SESSION_INFO":
+	            handleSessionConfig(event.data.sessionData);
+	            break;
+	        }
+	      }
 	    });
-
-	    _windowConnection.send({
-	      type: 'CONNECT_DISPATCHER',
-	      authToken: Config.getConfigProperty('authorisationToken'),
-	      endpoint: Config.getConfigProperty('endpoint')
-	    });
+	    root.postMessage({
+	      origin: 'logui.bundle.js',
+	      type: 'GET_SESSION_INFO'
+	    }); // _windowConnection = new WindowConnection('logui.bundle.js', 'main.js')
+	    // _windowConnection.on('DISPATCHER_CONNECTION_SUCCESS', function(request){
+	    //     return new Promise((resolve,reject)=>{
+	    //         handleSessionConfig(request.sessionData)
+	    //         resolve('got session config details.')
+	    //     })
+	    // })
+	    // _windowConnection.on('LOGUI_HANDSHAKE_SUCCESS', function(request){
+	    //     return new Promise((resolve,reject)=>{
+	    //         handleSessionConfig(request.sessionData)
+	    //         resolve('got session config details.')
+	    //     })
+	    // })
+	    // _windowConnection.on('LOGUI_CACHE_OVERFLOW', function(request){
+	    //     return new Promise((resolve,reject)=>{
+	    //         root.dispatchEvent(new Event('logUIShutdownRequest'))
+	    //         resolve('dispatched DOM Event logUIShutdownRequest')
+	    //     })
+	    // })
+	    // _windowConnection.send({
+	    //     type: 'CONNECT_DISPATCHER',
+	    //     authToken: Config.getConfigProperty('authorisationToken'),
+	    //     endpoint: Config.getConfigProperty('endpoint')
+	    // },_=>console.log('Dispatcher started!'), (err)=>console.error(err))
 	  };
 
 	  return _public;
@@ -6806,8 +6827,9 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Thu Nov 02 2023 10:03:41 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Mon Nov 06 2023 10:23:08 GMT-0700 (Mountain Standard Time)';
 	  _public.Config = Config;
+	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */
 
 	  _public.init = /*#__PURE__*/function () {
@@ -6886,9 +6908,6 @@ var LogUI = (function () {
 	              throw Error('The LogUI event handler controller component failed to initialise. Check console warnings to see what went wrong.');
 
 	            case 19:
-	              root.addEventListener('unload', _public.stop);
-
-	            case 20:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -6900,6 +6919,26 @@ var LogUI = (function () {
 	      return _ref.apply(this, arguments);
 	    };
 	  }();
+
+	  function handleWindowMessages(event) {
+	    var _event$data;
+
+	    if (event.source === window && (event === null || event === void 0 ? void 0 : (_event$data = event.data) === null || _event$data === void 0 ? void 0 : _event$data.origin) === 'main.js') {
+	      console.log("Got ".concat(event.data.type, " msg from 'main.js'"));
+
+	      switch (event.data.type) {
+	        case 'START_LOGUI':
+	          _public.init(event.data.config);
+
+	          break;
+
+	        case 'STOP_LOGUI':
+	          _public.stop();
+
+	          break;
+	      }
+	    }
+	  }
 
 	  _public.isActive = function () {
 	    return Config.isActive() && Dispatcher.isActive();
@@ -6918,7 +6957,7 @@ var LogUI = (function () {
 	            throw Error('LogUI may only be stopped if it is currently running.');
 
 	          case 2:
-	            root.removeEventListener('unload', _public.stop);
+	            //root.removeEventListener('unload', _public.stop);
 	            root.removeEventListener('logUIShutdownRequest', _public.stop); // https://stackoverflow.com/questions/42304996/javascript-using-promises-on-websocket
 
 	            DOMHandler.stop();
@@ -6926,14 +6965,14 @@ var LogUI = (function () {
 	            SpecificFrameworkEvents.stop();
 	            EventPackager.stop();
 	            MetadataHandler.stop();
-	            _context2.next = 11;
+	            _context2.next = 10;
 	            return Dispatcher.stop();
 
-	          case 11:
+	          case 10:
 	            Config.reset();
 	            root.dispatchEvent(new Event('logUIStopped'));
 
-	          case 13:
+	          case 12:
 	          case "end":
 	            return _context2.stop();
 	        }

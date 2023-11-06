@@ -1,17 +1,12 @@
 // UTILITY FUNCTIONS
 
-//https://stackoverflow.com/questions/679915/how-do-i-test-for-an-empty-javascript-object
-function isEmptyObject(obj){
-    return obj // 👈 null and undefined check
-        && Object.keys(obj).length === 0
-        && Object.getPrototypeOf(obj) === Object.prototype
-}
-
-
 
 /**
  * Cannot use crypto.randomUUID() as that won't work in content scripts 
  * not running from https. 
+ * 
+ * Used to uniquely identify messages sent via Abstract Connections.
+ * 
  * https://stackoverflow.com/questions/105034/how-do-i-create-a-guid-uuid
  * @returns a uuid
  */
@@ -33,13 +28,11 @@ class AbstractConnection{
     }
 
     /**
-     * Register a function to invoke when background scripts sends
-     * a message of a particular type.
+     * Register a function to invoke when recieving a message of a particular type.
      * @param {String} type 
      * @param {Function} handler 
      */
     on(type, handler){
-        console.log(`I'm (${this}) gonna use my send function ${this.sendFunction.toString()}`)
         let wrapper = new OnHandlerWrapper(handler, this, this.sendFunction)
         this.invokeMap.set(type, wrapper)
     }
@@ -60,10 +53,16 @@ class AbstractConnection{
      * @param {Function} onError function to invoke on error response
      */
     send(data, onSuccess, onError){
-        data._id = uuid()
+        if(data._id === undefined){
+            data._id = uuid()
+        }
         console.debug(`[${this.origin}][PORT:${this.name}][REQUEST:${data._id}][${data.type}] ${JSON.stringify(data, null, 4)}`)
-        this.successMap.set(data._id, onSuccess)
+        this.successMap.set(data._id, onSuccess !== undefined?onSuccess:_=>this.genericSuccessHandler())
         this.errorMap.set(data._id, onError !== undefined?onError:(err)=>this.genericErrorHandler(err))
+
+        console.debug(`${this.name} set maps for ${data._id}`)
+        console.debug(this.successMap)
+        console.debug(this.errorMap)
     }
 
     /**
@@ -100,18 +99,37 @@ class AbstractConnection{
         
         //If there is an err_msg, fire the onError function for this request
         if(msg.err_msg !== undefined){
-            this.errorMap.get(msg._id)(msg)
+            console.debug(msg._id)
+            console.debug(this.errorMap)
+
+            //TODO: this is kind of a band aid. It is strange that there are a lot of missing map entries. In theory, it shouldn't be possible to recieve an error for a request you did not send.
+            if(this.errorMap.has(msg._id)){
+                this.errorMap.get(msg._id)(msg)
+                this.errorMap.delete(msg._id)
+            }
+
         }else{
             //If there is no err_msg, fire the onSuccess function for this request
-            this.successMap.get(msg._id)(msg)
+            console.debug(msg._id)
+            console.debug(this.successMap)
+            //TODO: this is kind of a band aid. It is strange that there are a lot of missing map entries. In theory, it shouldn't be possible to recieve an success for a request you did not send.
+            if(this.successMap.has(msg._id)){ 
+                this.successMap.get(msg._id)(msg)
+                this.successMap.delete(msg._id)
+            }
+
         }
         //In either case remove the message from the maps once handled
-        this.errorMap.delete(msg._id)
-        this.successMap.delete(msg._id)
+        
+        
     }
 
     genericErrorHandler(err){
         console.error('An error occurred! ', err)
+    }
+
+    genericSuccessHandler(){
+        //TODO: maybe log something here? 
     }
 
 }
@@ -121,6 +139,7 @@ class AbstractConnection{
  * 
  * A handler wrapper that manages message ids and facilitates responses from the handler provided
  * to the on(type, handler) function in AbstractConnection.
+ * 
  * @param {Function} handler the handler to wrap
  * @param {Object} conn parent connection
  * @param {Function} sendFunc a function that facilitates sending on the connections underlying mechanism.
@@ -136,11 +155,17 @@ class OnHandlerWrapper {
     wrapper(data){
         console.debug(`[${this.conn.origin}#${data.type}][REQUEST:${data._id}] ${JSON.stringify(data, null, 4)}`)
         let _id = data._id
+        /**
+         * Note: if you get a strange this.handler(...) is undefined error here. The handler function doesn't return anything. 
+         * It should return a promise. 
+         */
+
         this.handler(data).then((result)=>{
             //Handle successful handler result
             result._id = _id
+            result._id = data._id
             console.debug(`[${this.conn.origin}#${data.type}][RESPONSE: ${data._id}] ${JSON.stringify(result, null, 4)}`)
-            // conn.port.postMessage(result)
+
             this.sendFunction(result)
         }).catch((err)=>{
             //Handle handler failure/error
@@ -156,6 +181,9 @@ class OnHandlerWrapper {
     }
 }
 
+/**
+ * This type of connection is only usable by extension scripts, and won't work from page scripts.
+ */
 class PortConnection extends AbstractConnection {
     /**
      * 
@@ -183,6 +211,10 @@ class PortConnection extends AbstractConnection {
     }
 }
 
+/**
+ * This type of connection is usable by page scripts. It's how scripts embedded into the page by main.js can 
+ * communicate with main.js. 
+ */
 class WindowConnection extends AbstractConnection {
 
     /**
@@ -194,7 +226,8 @@ class WindowConnection extends AbstractConnection {
         super(origin)
         this.direction = `from-${origin}`
         this.counterparty = `from-${counterparty}`
-        console.log(`handling window messages with: ${this.handleResponse.toString()}`)
+        this.name = `from-${counterparty}-to-${origin}`
+        console.debug(`handling window messages with: ${this.handleResponse.toString()}`)
         window.addEventListener("message", (msg)=>this.handleResponse(msg))
     }
 
@@ -208,10 +241,6 @@ class WindowConnection extends AbstractConnection {
          * invoke our response handler off the message *we* sent.
          * 
          */
-        
-        // console.log(`[${this.origin}] Got event from ${msg.source}: ${JSON.stringify(msg.data, null, 4)}`)
-        // console.log(`[${this.origin}] msg.source === window: ${msg.source === window}`)
-        // console.log(`[${this.origin}] msg?.data?.direction === ${this.counterparty}: ${msg?.data?.direction === this.counterparty}`)
         if(
             msg.source === window &&
             msg?.data?.direction === this.counterparty
@@ -222,7 +251,7 @@ class WindowConnection extends AbstractConnection {
 
     send(data, onSuccess, onError){
         super.send(data, onSuccess, onError)
-        console.log(`sending and will invoke on success: ${onSuccess?.toString()}`)
+        console.debug(`sending and will invoke on success: ${onSuccess?.toString()}`)
 
         this.sendFunction(data)
     }
@@ -236,7 +265,7 @@ class WindowConnection extends AbstractConnection {
          * in which case we get the direction by going through the conn.direction field accessors.
          */
         data.direction = this.direction === undefined?this.conn.direction:this.direction
-        console.log(`sendFunctionResult: ${JSON.stringify(data, null, 4)}`)
+        // console.debug(`sendFunctionResult: ${JSON.stringify(data, null, 4)}`)
         window.postMessage(data)
     }
 }

@@ -10,8 +10,8 @@
                 "scripts/globalThis.js",
                 "/scripts/constants.js",
                 "/scripts/stateManager.js",
-                "/scripts/utils.js",
                 "scripts/logUIConfig.js",
+                "scripts/utils.js",
                 "scripts/main.js"
             ]
             
@@ -23,7 +23,6 @@
         "webRequestBlocking",
         "webRequestFilterResponse"
     ],
-    "devtools_page": "devtools.html",
     "background":{
         "scripts": [
             "/libs/jquery-3.6.4.min.js",

@@ -177,7 +177,7 @@
 
             //Ensure LogUI is defined and active. Only log event if we have nodes to report
             if(window.LogUI && window.LogUI.isActive() && eventDetails.nodes && eventDetails.nodes.length > 0){
-                console.log("passing eventDetails")
+                
                 
                 // If there's only one node, move the xpath field out into eventDetails for convenience
                 if(eventDetails.nodes.length === 1){
@@ -188,9 +188,9 @@
                 if(eventDetails.nodes.length === 1 && eventDetails.nodes[0].localName === 'script' || eventDetails.nodes[0].localName === 'style'){
                     return
                 }
-
+                
+                console.debug(`passing eventDetails ${JSON.stringify(eventDetails, ["name", "action", "xpath"], 4)}`)
                 eventDetails.domSnapshot = JSON.stringify(document.body, rootFields)
-                console.log(eventDetails)
                 
                 //Stringify nodes before we send it
                 eventDetails.nodes = JSON.stringify(eventDetails.nodes)

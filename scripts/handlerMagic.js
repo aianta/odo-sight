@@ -54,42 +54,43 @@ Node.prototype.addEventListener = function(a,b,c){
 
 }
 
-console.log('Establishing connection with content scripts!')
-let contentScriptConn = new WindowConnection('handlerMagic.js', 'main.js')
+// console.log('Establishing connection with content scripts!')
+
+// const contentScriptConn = new WindowConnection('handlerMagic.js', 'main.js')
 
 /**
  * Handle LogUI start request
  */
-contentScriptConn.on('START', function(request){
-  return new Promise((resolve, reject)=>{
-    if(LogUI.isActive()){
-      console.log('LogUI is already active!')
-      reject("LogUI is already active!")
-    }
-    LogUI.init(request.config)
-    setTimeout(()=>{
-      resolve({
-        sessionId: LogUI.Config.sessionData.getSessionIDKey()
-      })
-    })
+// contentScriptConn.on('START', function(request){
+//   return new Promise((resolve, reject)=>{
+//     if(LogUI.isActive()){
+//       console.log('LogUI is already active!')
+//       reject("LogUI is already active!")
+//     }
+//     LogUI.init(request.config)
+//     setTimeout(()=>{
+//       resolve({
+//         sessionId: LogUI.Config.sessionData.getSessionIDKey()
+//       })
+//     })
 
-  })
-})
+//   })
+// })
 
 
-/**
- * Handle LogUI stop request
- */
+// /**
+//  * Handle LogUI stop request
+//  */
 
-contentScriptConn.on('STOP', function(request){
-  return new Promise((resolve,reject)=>{
-    if(!LogUI.isActive()){
-      console.log('LogUI is already stopped!')
-      reject('LogUI is already stopped!')
-    }else{
-      LogUI.stop()
-      resolve({msg:"LogUI stopped!"})
-    }
-  })
-})
+// contentScriptConn.on('STOP', function(request){
+//   return new Promise((resolve,reject)=>{
+//     if(!LogUI.isActive()){
+//       console.log('LogUI is already stopped!')
+//       reject('LogUI is already stopped!')
+//     }else{
+//       LogUI.stop()
+//       resolve({msg:"LogUI stopped!"})
+//     }
+//   })
+// })
 

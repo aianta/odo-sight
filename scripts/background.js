@@ -9,24 +9,37 @@ browser.runtime.onStartup.addListener(stateManager.init)
 browser.runtime.onInstalled.addListener(stateManager.init)
 
 
+browser.runtime.onMessage.addListener(handleMessage)
+
+function handleMessage(message){
+    if('payload' in message){
+        LogUIDispatcher.sendObject(message.payload)
+
+        if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
+            LogUIDispatcher.stop()
+        }
+    }
+}
+
+
 
 //Setup communication with controls.html & content scripts
 let controlsPort;
 let contentScriptsPort;
 // let devtoolsPort;
 
-function connected(p){
-    console.log('connected port:', p)
-    switch(p.name){
-        case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
-            contentScriptsPort = p;
-            setupPortHandler(contentScriptsPort, handleContentScriptRequest)
-            break;
+// function connected(p){
+//     console.log('connected port:', p)
+//     switch(p.name){
+//         case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
+//             contentScriptsPort = p;
+//             setupPortHandler(contentScriptsPort, handleContentScriptRequest)
+//             break;
 
-    }
-}
+//     }
+// }
 
-browser.runtime.onConnect.addListener(connected);
+// browser.runtime.onConnect.addListener(connected);
 
 
 /**
@@ -61,18 +74,19 @@ function setupPortHandler(port, logicHandler){
          * TODO: if there ever are responses that have to go back to devtools, may have to make some changes here.
          */
         if(data.type === undefined){
-            switch(port.name){
-                case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
-                    controlsPort.postMessage(data)
-                    break;
-                case CONTROLS_TO_BACKGROUND_PORT_NAME:
-                    contentScriptsPort.postMessage(data)
-                    break;
-            }
+            // switch(port.name){
+            //     case CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME:
+            //         controlsPort.postMessage(data)
+            //         break;
+            //     case CONTROLS_TO_BACKGROUND_PORT_NAME:
+            //         contentScriptsPort.postMessage(data)
+            //         break;
+            // }
             return
         }
         //Otherwise if a message has a type, proceed with invoking the logic handler.
         logicHandler(data).then(function(result){
+            console.log(`we got the following result: ${result}`)
             //Handle successfully logic handler result.
             result._id = _id
             console.debug(`[background.js][PORT:${port.name}][RESPONSE:${result._id}] ${JSON.stringify(result, null, 4)}`)
@@ -100,15 +114,14 @@ function handleContentScriptRequest(data){
         case "CONNECT_DISPATCHER":
             console.log('executing CONNECT_DISPATCHER')
             stateManager.flightAuthToken().then((authToken)=>LogUIDispatcher.handleClientDispatcherConnection(data.endpoint, authToken, contentScriptsPort))
-            break;
+            return Promise.resolve({})
         case "LOGUI_EVENT":
             LogUIDispatcher.sendObject(data.payload)
 
             if(data.payload.eventType === 'statusEvent' && data.payload.eventDetails.type === 'stopped'){
                 LogUIDispatcher.stop()
             }
-
-            break;
+            return Promise.resolve({});
     }
 }
 
@@ -116,67 +129,75 @@ function handleContentScriptRequest(data){
 
 function logNetworkRequest(record){
 
-    var _fields = [
-        "timeStamp", //The sky will fall if this is not included.
-        "requestId",
-        "method", 
-        "requestBody",
-        "url",
-        "documentUrl",
-        "type"
-    ]
-    
-    //TODO: should get the host programatically.
-    let target_host = "localhost:8088"
+    stateManager.shouldRecord().then((shouldRecord)=>{
 
-    //Only capture xmlhttprequests going to the target host
-    if(record.type === 'xmlhttprequest' && record.url.includes(target_host)){
-        //Intercept the response https://github.com/mdn/webextensions-examples/blob/main/http-response/background.js
-        let filter = browser.webRequest.filterResponseData(record.requestId)
-        let decoder = new TextDecoder("utf-8")
-        let encoder = new TextEncoder()
-        let eventDetails = {
-            name: "NETWORK_EVENT"
-        }
-
-
-        filter.ondata = event => {
-
-
-            console.log(record)
-
-            for (const [key, value] of Object.entries(record)){
-                if(_fields.includes(key)){
-                    
-                    if(typeof value === 'object'){
-                        eventDetails[key] = JSON.stringify(value)
-                    }else{
-                        eventDetails[key] = value
+        if(shouldRecord){ //Only intercept network requests if the 'shouldRecord' flag is set.
+            var _fields = [
+                "timeStamp", //The sky will fall if this is not included.
+                "requestId",
+                "method", 
+                "requestBody",
+                "url",
+                "documentUrl",
+                "type"
+            ]
+            
+            //TODO: should get the host programatically.
+            let target_host = "localhost:8088"
+        
+            //Only capture xmlhttprequests going to the target host
+            if(record.type === 'xmlhttprequest' && record.url.includes(target_host)){
+                //Intercept the response https://github.com/mdn/webextensions-examples/blob/main/http-response/background.js
+                let filter = browser.webRequest.filterResponseData(record.requestId)
+                let decoder = new TextDecoder("utf-8")
+                let encoder = new TextEncoder()
+                let eventDetails = {
+                    name: "NETWORK_EVENT"
+                }
+        
+        
+                filter.ondata = event => {
+        
+        
+                    console.log(record)
+        
+                    for (const [key, value] of Object.entries(record)){
+                        if(_fields.includes(key)){
+                            
+                            if(typeof value === 'object'){
+                                eventDetails[key] = JSON.stringify(value)
+                            }else{
+                                eventDetails[key] = value
+                            }
+        
+                        }
                     }
-
+                        
+        
+                    
+        
+                    let str = decoder.decode(event.data, {stream:true})
+        
+                    try{
+                        let jsonData = JSON.parse(str)
+                        eventDetails['responseBody'] = str
+                    }catch(error){
+                        //Parsing error, the response data wasn't json, so we don't care about it.
+                    }finally{
+                        filter.write(event.data)
+                        filter.disconnect()
+                    }
+                    
+                    
+                    LogUIDispatcher.packageCustomEvent(eventDetails)
+                    
                 }
             }
-                
-
-            
-
-            let str = decoder.decode(event.data, {stream:true})
-
-            try{
-                let jsonData = JSON.parse(str)
-                eventDetails['responseBody'] = str
-            }catch(error){
-                //Parsing error, the response data wasn't json, so we don't care about it.
-            }finally{
-                filter.write(event.data)
-                filter.disconnect()
-            }
-            
-            
-            LogUIDispatcher.packageCustomEvent(eventDetails)
-            
         }
-    }
+
+    }, _=>console.error('Missing shouldRecord flag.'))
+
+
 
 }
 

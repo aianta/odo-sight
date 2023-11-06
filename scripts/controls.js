@@ -92,7 +92,19 @@ function handleJWTError(err){
 function appListHandler(response){
     console.log("Got application list: ", response)
 
+    //Handle case where there are no applications.
+    if(response.length == 0){
+        const entry = $(`
+        <div class='app-entry'>
+        <p>There are no registered applications. You can register applications using the LogUI server admin app.</p>
+        </div>`)
+        $('#app-list').append(entry)
+        return
+    }
+
+    //Handle case where there are applications
     response.forEach( function (app,index){
+        //Create entries for each applicaiton with a select button.
         let app_entry = $(`
         <div index=${index} id='${app.id}' class='app-entry'>
         <span class="app-name">${app.name}</span>

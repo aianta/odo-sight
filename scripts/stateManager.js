@@ -25,7 +25,11 @@ var stateManager = (function(){
             logUIConfig: undefined,
             jwt: undefined,
             sessionId: undefined,
-            flightAuthToken: undefined
+            sessionData: undefined,
+            sessionReady: false,
+            endpoint: 'ws://localhost:8000/ws/endpoint/',
+            flightAuthToken: undefined,
+            eventCacheOverflow: false
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
@@ -38,6 +42,19 @@ var stateManager = (function(){
     /**
      * Helper functions for setting and retrieving core Odo Sight state variables. 
      */
+    _public.sessionData = function(data){
+        if(data === undefined){
+            return _public.get('sessionData')
+        }
+
+        return _public.set('sessionData', data)
+    }
+
+
+
+
+
+
     _public.selectedFlight = function(flight){
         if(flight === undefined){
             return _public.get('selectedFlight')
@@ -51,6 +68,13 @@ var stateManager = (function(){
         }
 
         return _public.set('selectedApp', app)
+    }
+
+    _public.endpoint = function(endpoint){
+        if(endpoint === undefined){
+            return _public.get('endpoint')
+        }
+        return _public.set('endpoint', endpoint)
     }
 
     _public.jwt = function(jwt){
@@ -70,6 +94,22 @@ var stateManager = (function(){
             return _public.get('sessionId')
         }
         return _public.set('sessionId', sessionId)
+    }
+
+    _public.eventCacheOverflow = function(flag){
+        if(flag === undefined){
+            return _public.get('eventCacheOverflow')
+        }
+
+        return _public.set('eventCacheOverflow', flag)
+    }
+
+    _public.sessionReady = function(flag){
+        if(flag === undefined){
+            return _public.get('sessionReady')
+        }
+
+        return _public.set('sessionReady', flag)
     }
 
     _public.shouldRecord = function(flag){

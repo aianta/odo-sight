@@ -39,7 +39,8 @@ $('#new-flight-btn').button({
 
 function refreshUI(){
 
-    stateManager.sessionId().then((sessionId)=>$('#session_id').text(sessionId),_=>$('#session_id').text('<no active session>'))
+    stateManager.sessionId()
+        .then((sessionId)=>$('#session_id').text(sessionId),_=>$('#session_id').text('<no active session>'))
 
     //Update UI as a function of whether a flight is selected or not.
     stateManager.selectedFlight()
@@ -57,6 +58,7 @@ function refreshUI(){
             //There does not exist a selected flight
             $('#no-flight-instructions').addClass('visible').removeClass('hidden')
             $('#flight-label').addClass('hidden').removeClass('visible')
+            $('#flight_id').text('<no flight selected>')
 
             //Hide recording controls
             $('#recording-controls').addClass('hidden').removeClass('visible')
