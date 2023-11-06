@@ -143,11 +143,21 @@ function start(){
 
     stateManager.jwt().then(
         (jwt)=>services.getLogUIAppList().then(appListHandler),
-        _=>services.getJWT(_LOG_UI_DEFAULT_USERNAME,_LOG_UI_DEFAULT_PASSWORD)
+        _=>Promise.all([
+            stateManager.username(),
+            stateManager.password()
+        ]).then((values)=>{
+            const username = values[0]
+            const password = values[1]
+            
+            services.getJWT(username,password)
             .then(
                 _=>services.getLogUIAppList().then(appListHandler),
                 handleJWTError
             )
+        })
+        
+        
 
     )
 }

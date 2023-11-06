@@ -22,14 +22,16 @@ var stateManager = (function(){
             stateVersion: `${_ODO_SIGHT_VALID_STATE_VERISON}`, // version of the stored state data. Incremented when breaking changes are made.
             shouldRecord: false, //The target LogUI state, whether it should be recording or not.
             isRecording: false, //The actual LogUI state, whether it is recording or not.
-            logUIConfig: undefined,
+            logUIConfig: {},
             jwt: undefined,
             sessionId: undefined,
             sessionData: undefined,
             sessionReady: false,
             endpoint: 'ws://localhost:8000/ws/endpoint/',
             flightAuthToken: undefined,
-            eventCacheOverflow: false
+            eventCacheOverflow: false,
+            username: undefined,
+            password: undefined
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
@@ -56,6 +58,22 @@ var stateManager = (function(){
             return _public.get('selectedFlight')
         }
         return _public.set('selectedFlight', flight)
+    }
+
+    _public.username = function(username){
+        console.log('updating username to ', username)
+        if(username === undefined){
+            return _public.get('username')
+        }
+        return _public.set('username', username)
+    }
+
+    _public.password = function(password){
+        if(password === undefined){
+            return _public.get('password')
+        }
+
+        return _public.set('password', password)
     }
 
     _public.selectedApp = function(app){

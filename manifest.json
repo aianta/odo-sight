@@ -10,9 +10,9 @@
                 "scripts/globalThis.js",
                 "/scripts/constants.js",
                 "/scripts/stateManager.js",
-                "scripts/logUIConfig.js",
                 "scripts/main.js"
-            ]
+            ],
+            "run_at": "document_start"
             
         }
     ],
@@ -31,6 +31,9 @@
             "/scripts/websocketDispatcher.js",
             "/scripts/background.js"
             ]
+    },
+    "options_ui":{
+        "page": "/options/options.html"
     },
     "action":{
         "default_icon":{

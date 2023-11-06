@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+    <head>
+        <meta charset="utf-8">
+        
+    </head>
+    <body>
+        <form>
+            <!-- USERNAME  -->
+            <div>
+                <label for="color">LogUI Server Username</label>
+                <input type="text" id="logui-server-username" name="logui-server-username" />
+            </div>
+            <!-- PASSWORD  -->
+            <div>
+                <label for="color">LogUI Server Password</label>
+                <input type="password" id="logui-server-password" name="logui-server-password" />
+            </div>
+            <!-- ENDPOINT -->
+            <div>
+                <label for="color">LogUI Server Websocket Endpoint</label>
+                <input type="text" id="logui-server-endpoint" name="logui-server-endpoint" />
+            </div>
+            <!-- LOGUI CONFIG -->
+            <div>
+                <label for="color">LogUI Client Config</label>
+                <textarea  id="logui-client-config" name="logui-client-config" rows="50" cols="80"></textarea>
+            </div>
+            <button type="submit">Save</button>
+        </form>
+        <script src="/scripts/stateManager.js"></script>
+        <script src="options.js"></script>
+    </body>
+</html>

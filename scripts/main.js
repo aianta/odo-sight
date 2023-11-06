@@ -141,11 +141,14 @@ function sendSessionInfo(data){
 
 function startLogUI2(){
     console.log('sending start command to logui.bundle.js')
-    window.postMessage({
-        origin: 'main.js',
-        type: 'START_LOGUI',
-        config: _odo_sight_LogUI_config
+    stateManager.logUIConfig().then((config)=>{
+        window.postMessage({
+            origin: 'main.js',
+            type: 'START_LOGUI',
+            config: config
+        })
     })
+
 }
 
 function stopLogUI2(){
@@ -154,3 +157,4 @@ function stopLogUI2(){
         type: 'STOP_LOGUI'
     })
 }
+
