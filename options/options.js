@@ -1,8 +1,6 @@
 
 //Setup default logUI config if the current state is just an empty object
 stateManager.logUIConfig().then((currentConfig)=>{
-    console.log('current config ', currentConfig)
-    console.log(Object.keys(currentConfig).length)
     if(Object.keys(currentConfig).length === 0){ //Check if the current config object is empty.
         //If so, save the default logUI config.
         stateManager.logUIConfig(_defaultConfig)

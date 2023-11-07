@@ -1,6 +1,4 @@
-//Report the page orign when main.js loads.
-stateManager.pageOrigin(window.location.origin);
-console.log(window.location.origin)
+
 
 /**
  * Inject scripts into the page. This code has to be injected like this because we need to modify the 
@@ -70,6 +68,12 @@ function observeStateChange(changes){
     //If the new 'sessionReady' value is true, start the LogUI client
     if ('sessionReady' in changes && changes['sessionReady'].newValue){
         checkState()
+    }
+
+    //If the new 'shouldRecord' value is true, set the page origin.
+    if('shouldRecord' in changes && changes['shouldRecord'].newValue){
+        //Report the page orign
+        stateManager.pageOrigin(window.location.origin);
     }
 
     //If the new 'shouldRecord' value is false, stop the LogUI client
