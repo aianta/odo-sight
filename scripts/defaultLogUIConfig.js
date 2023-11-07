@@ -1,4 +1,4 @@
-_odo_sight_LogUI_config = {
+const _defaultConfig = {
     logUIConfiguration: {
         endpoint: 'ws://localhost:8000/ws/endpoint/',
         authorisationToken: '',

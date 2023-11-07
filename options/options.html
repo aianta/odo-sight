@@ -1,7 +1,7 @@
 <!DOCTYPE html>
     <head>
         <meta charset="utf-8">
-        
+        <link rel="stylesheet" href="/options/options.css"/>
     </head>
     <body>
         <form>
@@ -23,11 +23,16 @@
             <!-- LOGUI CONFIG -->
             <div>
                 <label for="color">LogUI Client Config</label>
-                <textarea  id="logui-client-config" name="logui-client-config" rows="50" cols="80"></textarea>
+                <div><small>Note: 'endpoint' value in config JSON below will be ignored, the desired endpoint value should be set above. 'authorizationToken' will also be negotiated by Odo Sight automatically and can be left blank. </small></div>
+                <textarea  id="logui-client-config" name="logui-client-config" rows="35" cols="60"></textarea>
+                <div class="error-box hidden">
+                    <p id="config-value-error-msg">Error message</p>
+                </div>
             </div>
             <button type="submit">Save</button>
         </form>
         <script src="/scripts/stateManager.js"></script>
+        <script src="/scripts/defaultLogUIConfig.js"></script>
         <script src="options.js"></script>
     </body>
 </html>

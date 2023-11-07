@@ -1,3 +1,7 @@
+//Report the page orign when main.js loads.
+stateManager.pageOrigin(window.location.origin);
+console.log(window.location.origin)
+
 /**
  * Inject scripts into the page. This code has to be injected like this because we need to modify the 
  * prototype addEventListener on Node, and have that persist for the page scripts. Normally page scripts and content
@@ -18,13 +22,8 @@ handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
 domeffectsScript.src = browser.runtime.getURL('/libs/dom-effects.js')
 
 domeffectsScript.onload = function(){this.remove();};
-logUIScript.onload = function(){
-    //HandlerMagic script should start only after logUI script is loaded.
-    (document.head || document.documentElement).appendChild(handlerMagicScript);
-    this.remove();
-};
 
-handlerMagicScript.onload = function(){
+logUIScript.onload = function(){
     //Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
     Promise.all([
         stateManager.shouldRecord(),
@@ -42,16 +41,14 @@ handlerMagicScript.onload = function(){
     this.remove();
 };
 
+handlerMagicScript.onload = function(){this.remove();};
 
+(document.head || document.documentElement).appendChild(handlerMagicScript);
 (document.head || document.documentElement).appendChild(logUIScript);
 (document.head || document.documentElement).appendChild(domeffectsScript);
 
 
 
-
-function patchFlightToken(newToken){
-    _odo_sight_LogUI_config.logUIConfiguration.authorisationToken = newToken
-}
 
 
 function checkState(){
@@ -69,13 +66,6 @@ function checkState(){
 }
 
 function observeStateChange(changes){
-
-    if ('flightAuthToken' in changes){
-        //If a change is observed to the flight auth token, patch the logUI client config with the new token.
-        patchFlightToken(changes['flightAuthToken'].newValue)
-    }
-
-
 
     //If the new 'sessionReady' value is true, start the LogUI client
     if ('sessionReady' in changes && changes['sessionReady'].newValue){
@@ -140,14 +130,32 @@ function sendSessionInfo(data){
 }
 
 function startLogUI2(){
-    console.log('sending start command to logui.bundle.js')
-    stateManager.logUIConfig().then((config)=>{
+    Promise.all([
+        stateManager.endpoint(),
+        stateManager.flightAuthToken(),
+        stateManager.logUIConfig()
+    ]).then((values)=>{
+
+        const endpoint = values[0]
+        const flightAuthToken = values[1]
+        const config = values[2]
+
+        console.log(config)
+
+        config.logUIConfiguration.authorisationToken = flightAuthToken
+        config.logUIConfiguration.endpoint = endpoint
+
         window.postMessage({
             origin: 'main.js',
             type: 'START_LOGUI',
             config: config
         })
+
+        console.log('sent start command to logui.bundle.js')
+
     })
+
+
 
 }
 

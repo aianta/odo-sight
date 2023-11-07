@@ -10,7 +10,6 @@
 browser.runtime.onStartup.addListener(stateManager.init)
 browser.runtime.onInstalled.addListener(stateManager.init)
 
-
 browser.runtime.onMessage.addListener(handleMessage)
 
 function handleMessage(message){

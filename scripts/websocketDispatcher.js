@@ -265,20 +265,26 @@ var LogUIDispatcher = (function() {
             _websocketSuccessfulReconnections += 1;
             console.log(`[LogUI Websocket Dispatcher] The connection to the server has been established.`)
 
-            let payload = {
-                clientVersion: '0.5.4a', //Forked LogUI client version.
-                authorisationToken: _authToken,
-                pageOrigin: 'http://localhost:8088', //TODO this should be dynamic
-                userAgent: 'Odo-sight',
-                clientTimestamp: new Date(),
-            };
+            stateManager.pageOrigin().then((origin)=>{
+                let payload = {
+                    clientVersion: '0.5.4a', //Forked LogUI client version.
+                    authorisationToken: _authToken,
+                    pageOrigin: origin, 
+                    userAgent: 'Odo-sight',
+                    clientTimestamp: new Date(),
+                };
+    
+                if (_sessionID) {
+                    payload.sessionID = _sessionID;
+                }
+                
+                console.log(JSON.stringify(payload, null, 4))
 
-            if (_sessionID) {
-                payload.sessionID = _sessionID;
-            }
+                console.log(`[LogUI Websocket Dispatcher] The LogUI handshake has been sent.`)
+                _websocket.send(JSON.stringify(_getMessageObject('handshake', payload)));
+            })
 
-            console.log(`[LogUI Websocket Dispatcher] The LogUI handshake has been sent.`)
-            _websocket.send(JSON.stringify(_getMessageObject('handshake', payload)));
+            
         },
 
     };

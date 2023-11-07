@@ -1,12 +1,30 @@
 
+//Setup default logUI config if the current state is just an empty object
+stateManager.logUIConfig().then((currentConfig)=>{
+    console.log('current config ', currentConfig)
+    console.log(Object.keys(currentConfig).length)
+    if(Object.keys(currentConfig).length === 0){ //Check if the current config object is empty.
+        //If so, save the default logUI config.
+        stateManager.logUIConfig(_defaultConfig)
+    }
+})
+
+
 function saveOptions(e){
     e.preventDefault();
+
+    //Hide exisiting errors, hopefully they've been fixed.
+    document.querySelector('.error-box').classList.remove('visible')
+    document.querySelector('.error-box').classList.add('hidden')
+
+
     
     try{
         let configValue = JSON.parse(document.querySelector('#logui-client-config').value)
         stateManager.logUIConfig(configValue)
     }catch(error){
         console.error(error)
+        showLogUIConfigError(error)
     }
 
 
@@ -28,6 +46,14 @@ function loadOptions(){
 
     
 }
+
+function showLogUIConfigError(message){
+    document.querySelector('#config-value-error-msg').innerHTML = message
+
+    document.querySelector(".error-box").classList.remove('hidden')
+    document.querySelector(".error-box").classList.add('visible')
+}
+
 
 document.addEventListener('DOMContentLoaded', loadOptions)
 document.querySelector("form").addEventListener("submit", saveOptions);

@@ -30,6 +30,7 @@ var stateManager = (function(){
             endpoint: 'ws://localhost:8000/ws/endpoint/',
             flightAuthToken: undefined,
             eventCacheOverflow: false,
+            pageOrigin: undefined,
             username: undefined,
             password: undefined
         }
@@ -52,6 +53,13 @@ var stateManager = (function(){
         return _public.set('sessionData', data)
     }
 
+    _public.pageOrigin = function(origin){
+        if(origin === undefined){
+            return _public.get('pageOrigin')
+        }
+
+        return _public.set('pageOrigin', origin)
+    }
 
     _public.selectedFlight = function(flight){
         if(flight === undefined){
