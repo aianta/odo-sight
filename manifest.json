@@ -47,8 +47,7 @@
           "resources": [ 
             "/scripts/handlerMagic.js",
             "/libs/logui.bundle.js",
-            "/libs/dom-effects.js",
-            "/libs/html2canvas.min.js"
+            "/libs/dom-effects.js"
         ],
           "matches": [ "*://localhost/*" ]
         }]

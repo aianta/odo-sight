@@ -3,7 +3,8 @@
 stateManager.logUIConfig().then((currentConfig)=>{
     if(Object.keys(currentConfig).length === 0){ //Check if the current config object is empty.
         //If so, save the default logUI config.
-        stateManager.logUIConfig(_defaultConfig)
+        stateManager.logUIConfig(_defaultConfig).then(_=>loadOptions())
+        
     }
 })
 

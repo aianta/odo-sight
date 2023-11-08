@@ -28,6 +28,28 @@
         "text"
     ]
 
+    /**
+     * Returns a filtered snapshot of the DOM 
+     */
+    const captureDOMSnapshot = function(){
+        const fullHtml = document.documentElement.outerHTML
+        const scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+        const noScripts = fullHtml.replaceAll(scriptRegex, "") //Clear all scripts.
+        const xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi 
+        const noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, "") //Clear all XML character data
+        const styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi
+        const noStyle = noXMLCDATA.replaceAll(styleRegex, "") //Clear all css styles
+        const svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi
+        const noSvgPaths = noStyle.replaceAll(svgPathsRegex, "") //Clear all paths inside SVGs
+
+        let result = {
+            outerHTML: noSvgPaths, 
+            outerText: document.documentElement.outerText
+        }
+
+        return JSON.stringify(result)
+
+    }
 
     // Generating XPath
     // https://stackoverflow.com/questions/3454526/how-to-calculate-the-xpath-position-of-an-element-using-javascript
@@ -184,13 +206,18 @@
                     eventDetails.xpath = eventDetails.nodes[0].xpath
                 }
 
-                //Don't log script or style elements
-                if(eventDetails.nodes.length === 1 && eventDetails.nodes[0].localName === 'script' || eventDetails.nodes[0].localName === 'style'){
+                if(eventDetails.xpath === undefined){
+                    console.log(eventDetails)
+                }
+                
+                if(eventDetails.nodes.length === 1 && eventDetails.nodes[0].localName === 'script' || //Don't log scripts 
+                   eventDetails.nodes[0].localName === 'style' //Don't log style elements
+                   ){
                     return
                 }
                 
                 console.debug(`passing eventDetails ${JSON.stringify(eventDetails, ["name", "action", "xpath"], 4)}`)
-                eventDetails.domSnapshot = JSON.stringify(document.body, rootFields)
+                eventDetails.domSnapshot = captureDOMSnapshot()
                 
                 //Stringify nodes before we send it
                 eventDetails.nodes = JSON.stringify(eventDetails.nodes)
