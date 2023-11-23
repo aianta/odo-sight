@@ -10,7 +10,7 @@
  */
 
 
-if(!Node.prototype.realAddEventListener){ //Deeply important, see 2nd stackover flow post.
+if(!Node.prototype.realAddEventListener){ //Deeply important, see 2nd stackoverflow post.
     Node.prototype.realAddEventListener = Node.prototype.addEventListener
 }
 

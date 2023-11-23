@@ -78,11 +78,11 @@ var LogUIDispatcher = (function() {
     };
 
     _public.isActive = function() {
-        return _isActive;
+        return _websocket !== null
     };
 
     _public.sendObject = function(objectToSend) {
-        if (_isActive) {
+        if (_public.isActive()) {
             _cache.push(objectToSend);
 
 
@@ -327,11 +327,11 @@ var LogUIDispatcher = (function() {
 
         packageObject.eventType = 'customEvent'
         packageObject.eventDetails = eventDetails
-
-        if(_public.isActive()){ //Only send object if we're active.
+        if(_public._websocket !== null){ //Only send object if we have a websocket connection
             _public.sendObject(packageObject)
         }else{
-            console.error("I HAVE FAILED MY ONE JOB")
+            console.error("Failed to send: ")
+            console.error(JSON.stringify(eventDetails, null, 4))
         }
 
 

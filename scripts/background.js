@@ -23,7 +23,11 @@ function handleMessage(message){
     }
 }
 
-
+//Capture request bodies -> Sometimes a single request will appear multiple times throughout the interception code, and we lose the body. 
+//Login POST request is a good example, the same requestId hits the logNetworkRequest() function several times, but only has a request body
+//the first time. I suspect this has to do with how re-directs are handled. 
+//Anyways, to solve this, we'll create a map and store <request-id>:<request-body> then use the request body-value from the map if it exists. 
+const requestBodyMap = new Map()
 
 function logNetworkRequest(record){
 
@@ -37,14 +41,24 @@ function logNetworkRequest(record){
                 "requestBody",
                 "url",
                 "documentUrl",
-                "type"
+                "type",
+                "originUrl"
             ]
             
             //TODO: should get the host programatically.
             let target_host = "localhost:8088"
         
-            //Only capture xmlhttprequests going to the target host
-            if(record.type === 'xmlhttprequest' && record.url.includes(target_host)){
+            
+            if(record['requestBody']){
+                requestBodyMap.set(record['requestId'], record['requestBody'])
+            }
+
+
+
+            // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
+            //Only capture xmlhttprequests or main_frame events going to the target host
+            //main_frame: Top-level documents loaded into a tab.
+            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' ) && record.url.includes(target_host)){
                 //Intercept the response https://github.com/mdn/webextensions-examples/blob/main/http-response/background.js
                 let filter = browser.webRequest.filterResponseData(record.requestId)
                 let decoder = new TextDecoder("utf-8")
@@ -57,8 +71,6 @@ function logNetworkRequest(record){
                 filter.ondata = event => {
         
         
-                    console.log(record)
-        
                     for (const [key, value] of Object.entries(record)){
                         if(_fields.includes(key)){
                             
@@ -70,8 +82,16 @@ function logNetworkRequest(record){
         
                         }
                     }
+
+                    //Insert request body from map if it wasn't set. 
+                    if(eventDetails['requestBody'] === 'null'){
+                        eventDetails['requestBody'] = requestBodyMap.get(record['requestId'])
+                        requestBodyMap.delete(record['requestId'])
+                    }
+
+                    
+
                         
-        
                     
         
                     let str = decoder.decode(event.data, {stream:true})
