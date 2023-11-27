@@ -85,7 +85,7 @@ function logNetworkRequest(record){
 
                     //Insert request body from map if it wasn't set. 
                     if(eventDetails['requestBody'] === 'null'){
-                        eventDetails['requestBody'] = requestBodyMap.get(record['requestId'])
+                        eventDetails['requestBody'] = JSON.stringify(requestBodyMap.get(record['requestId']))
                         requestBodyMap.delete(record['requestId'])
                     }
 
