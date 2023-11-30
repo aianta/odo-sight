@@ -47,6 +47,8 @@ function handleMessage(message){
 //TODO: this might memory leak 
 
 const requestMap = new Map()
+const requestHeadersMap = new Map()
+const responseHeadersMap = new Map()
 
 function logNetworkRequest(record){
 
@@ -112,7 +114,12 @@ function logNetworkRequest(record){
                     //Get the eventDetails of the original request as found in the map.
                     //See comments on redirects above.
                     const _eventDetails = requestMap.get(record['requestId'])
+                    const _requestHeaders = requestHeadersMap.get(record['requestId'])
+                    const _responseHeaders = responseHeadersMap.get(record['requestId'])
                     
+                    //Bind headers to event details
+                    _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
+                    _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
         
                     let str = decoder.decode(event.data, {stream:true})
         
@@ -128,7 +135,10 @@ function logNetworkRequest(record){
                     
                     
                     LogUIDispatcher.packageCustomEvent(_eventDetails)
-                    requestMap.delete(record['requestId']) //Try to prevent memory leaks.
+                    //Try to prevent memory leaks.
+                    requestMap.delete(record['requestId']) 
+                    responseHeadersMap.delete(record['requestId'])
+                    requestHeadersMap.delete(record['requestId'])
                     
                 }
             }
@@ -143,3 +153,61 @@ function logNetworkRequest(record){
 browser.webRequest.onBeforeRequest.addListener(logNetworkRequest ,{
     urls: ["<all_urls>"]
 },['blocking','requestBody'])
+
+
+function logRequestHeaders(record){
+    stateManager.shouldRecord().then((shouldRecord)=>{
+
+        if(shouldRecord){
+
+            const _headers = {}
+
+            for (const header of record.requestHeaders){
+                //https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/HttpHeaders
+                _headers[header.name] = header.value?header.value:header.binaryValue
+
+            }
+
+
+            //If this is the first time we've seen this request id, store it's details for packaging later.
+            //See redirect comments above. 
+            if(!requestHeadersMap.has(record['requestId'])){
+                requestHeadersMap.set(record['requestId'], _headers)
+            }
+
+
+        }
+
+    })
+}
+
+//https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/onBeforeSendHeaders
+browser.webRequest.onSendHeaders.addListener(logRequestHeaders, {
+    urls: ["<all_urls>"]
+},["requestHeaders"])
+
+
+function logResponseHeaders(record){
+    stateManager.shouldRecord().then((shouldRecord)=>{
+        if(shouldRecord){
+
+            const _headers = {}
+
+            for(const header of record.responseHeaders){
+                //https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/HttpHeaders
+                _headers[header.name] = header.value?header.value:header.binaryValue
+            }
+
+            if(!responseHeadersMap.has(record['requestId'])){
+                responseHeadersMap.set(record['requestId'], _headers)
+            }
+
+        }
+    })
+}
+
+//https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/onHeadersReceived
+//https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/onResponseStarted
+browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
+    urls: ["<all_urls>"]
+}, ["responseHeaders"])
