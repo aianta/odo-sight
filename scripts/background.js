@@ -23,11 +23,30 @@ function handleMessage(message){
     }
 }
 
-//Capture request bodies -> Sometimes a single request will appear multiple times throughout the interception code, and we lose the body. 
-//Login POST request is a good example, the same requestId hits the logNetworkRequest() function several times, but only has a request body
-//the first time. I suspect this has to do with how re-directs are handled. 
-//Anyways, to solve this, we'll create a map and store <request-id>:<request-body> then use the request body-value from the map if it exists. 
-const requestBodyMap = new Map()
+
+/**
+ * browser.webrequest API documentation: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest
+ * 
+ * From the docs we can see that, in the case of a redirect, onBeforeRequest will be invoked twice. The requestId field will remain the
+ * same in this case, but the rest of the request details might change. 
+ * 
+ * Since we only produce a network request after reading the response body of a request, we won't actually capture the 
+ * event for the initial non-redirected request. 
+ * 
+ * This is a problem because we are interested in what action the front-end of an application thinks it is invoking, so fundamentally 
+ * we want to capture the initial non-redirected network request information. 
+ * 
+ * To do this we create a map of requests, and store the request details onBeforeRequest using the requestId as the key if there is
+ * no entry for that key in the map. 
+ * 
+ * If there is a redirect, the requestId will already appear in the map, and so the request details are ignored. 
+ *  
+ * Later, in the response filter when we aim to package and send our request, we use the request details stored in the map. 
+ */
+
+//TODO: this might memory leak 
+
+const requestMap = new Map()
 
 function logNetworkRequest(record){
 
@@ -48,57 +67,58 @@ function logNetworkRequest(record){
             //TODO: should get the host programatically.
             let target_host = "localhost:8088"
         
-            
-            if(record['requestBody']){
-                requestBodyMap.set(record['requestId'], record['requestBody'])
-            }
 
 
 
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
             //Only capture xmlhttprequests or main_frame events going to the target host
             //main_frame: Top-level documents loaded into a tab.
-            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' ) && record.url.includes(target_host)){
+            //Not GET: something is being sent to the server, it's important. 
+            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
+                
+                let eventDetails = {
+                    name: "NETWORK_EVENT"
+                }
+
+                for (const [key, value] of Object.entries(record)){
+                    if(_fields.includes(key)){
+                        
+                        if(typeof value === 'object'){
+                            eventDetails[key] = JSON.stringify(value)
+                        }else{
+                            eventDetails[key] = value
+                        }
+    
+                    }
+                }
+                //If this is the first time we've seen this request id, store it's details for packaging later.
+                //See redirect comments above. 
+                if(!requestMap.has(record['requestId'])){
+                    requestMap.set(record['requestId'], eventDetails)
+                }
+
+
+                
                 //Intercept the response https://github.com/mdn/webextensions-examples/blob/main/http-response/background.js
                 let filter = browser.webRequest.filterResponseData(record.requestId)
                 let decoder = new TextDecoder("utf-8")
                 let encoder = new TextEncoder()
-                let eventDetails = {
-                    name: "NETWORK_EVENT"
-                }
+
         
         
                 filter.ondata = event => {
         
-        
-                    for (const [key, value] of Object.entries(record)){
-                        if(_fields.includes(key)){
-                            
-                            if(typeof value === 'object'){
-                                eventDetails[key] = JSON.stringify(value)
-                            }else{
-                                eventDetails[key] = value
-                            }
-        
-                        }
-                    }
-
-                    //Insert request body from map if it wasn't set. 
-                    if(eventDetails['requestBody'] === 'null'){
-                        eventDetails['requestBody'] = JSON.stringify(requestBodyMap.get(record['requestId']))
-                        requestBodyMap.delete(record['requestId'])
-                    }
-
                     
-
-                        
+                    //Get the eventDetails of the original request as found in the map.
+                    //See comments on redirects above.
+                    const _eventDetails = requestMap.get(record['requestId'])
                     
         
                     let str = decoder.decode(event.data, {stream:true})
         
                     try{
                         let jsonData = JSON.parse(str)
-                        eventDetails['responseBody'] = str
+                        _eventDetails['responseBody'] = str
                     }catch(error){
                         //Parsing error, the response data wasn't json, so we don't care about it.
                     }finally{
@@ -107,7 +127,8 @@ function logNetworkRequest(record){
                     }
                     
                     
-                    LogUIDispatcher.packageCustomEvent(eventDetails)
+                    LogUIDispatcher.packageCustomEvent(_eventDetails)
+                    requestMap.delete(record['requestId']) //Try to prevent memory leaks.
                     
                 }
             }
