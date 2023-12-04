@@ -114,18 +114,16 @@ function logNetworkRequest(record){
                     //Get the eventDetails of the original request as found in the map.
                     //See comments on redirects above.
                     const _eventDetails = requestMap.get(record['requestId'])
-                    const _requestHeaders = requestHeadersMap.get(record['requestId'])
-                    const _responseHeaders = responseHeadersMap.get(record['requestId'])
-                    
-                    //Bind headers to event details
-                    _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
-                    _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
-        
+
                     let str = decoder.decode(event.data, {stream:true})
-        
+                    
+                    //Capture and save the response body
                     try{
                         let jsonData = JSON.parse(str)
                         _eventDetails['responseBody'] = str
+                        
+                        requestMap.set(record['requestId'], _eventDetails)
+
                     }catch(error){
                         //Parsing error, the response data wasn't json, so we don't care about it.
                     }finally{
@@ -133,13 +131,7 @@ function logNetworkRequest(record){
                         filter.disconnect()
                     }
                     
-                    
-                    LogUIDispatcher.packageCustomEvent(_eventDetails)
-                    //Try to prevent memory leaks.
-                    requestMap.delete(record['requestId']) 
-                    responseHeadersMap.delete(record['requestId'])
-                    requestHeadersMap.delete(record['requestId'])
-                    
+                      
                 }
             }
         }
@@ -211,3 +203,32 @@ function logResponseHeaders(record){
 browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
     urls: ["<all_urls>"]
 }, ["responseHeaders"])
+
+function bundleAndSend(record){
+
+    stateManager.shouldRecord().then((shouldRecord)=>{
+        if(shouldRecord){
+
+            //Assemble all the data gathered for this request now that it is complete
+            const _eventDetails = requestMap.get(record['requestId'])
+            const _requestHeaders = requestHeadersMap.get(record['requestId'])
+            const _responseHeaders = responseHeadersMap.get(record['requestId'])
+            //Bind request and response headers
+            _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
+            _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
+            
+            LogUIDispatcher.packageCustomEvent(_eventDetails)
+            //Try to prevent memory leaks.
+            requestMap.delete(record['requestId'])
+            requestHeadersMap.delete(record['requestId'])
+            responseHeadersMap.delete(record['requestId'])
+
+            
+        }
+    })
+
+}
+
+browser.webRequest.onCompleted.addListener(bundleAndSend, {
+    urls : ["<all_urls>"] 
+})
