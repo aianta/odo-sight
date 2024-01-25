@@ -50,6 +50,11 @@
             "/libs/dom-effects.js"
         ],
           "matches": [ "*://localhost/*" ]
-        }]
+        }],
+    "browser_specific_settings": {
+        "gecko":{
+            "id": "odosight@ualberta.ca"
+        }
+    }
    
 }
