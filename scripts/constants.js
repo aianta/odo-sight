@@ -29,4 +29,4 @@ _DEFAULT_FLIGHT_DOMAIN = "localhost:8088"
  */
 _ODO_BOT_SIGHT_SERVER_HOST = "localhost:8079"
 _ODO_BOT_SIGHT_CONNECTION_CHECK_PATH = "/odo-sight/alive"
-_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo"
+_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo/v2"
