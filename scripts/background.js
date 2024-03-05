@@ -14,7 +14,7 @@ browser.runtime.onMessage.addListener(handleMessage)
 
 function handleMessage(message){
     if('payload' in message){
-        console.log(`Got LogUI event ${JSON.stringify(message.payload, null, 4)}`)
+        //console.log(`Got LogUI event ${JSON.stringify(message.payload, null, 4)}`)
         LogUIDispatcher.sendObject(message.payload)
 
         if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
@@ -97,6 +97,7 @@ function logNetworkRequest(record){
                 //See redirect comments above. 
                 if(!requestMap.has(record['requestId'])){
                     requestMap.set(record['requestId'], eventDetails)
+                    console.log("Saved new request to request map with id: ", record['requestId'])
                 }
 
 
@@ -165,6 +166,7 @@ function logRequestHeaders(record){
             //See redirect comments above. 
             if(!requestHeadersMap.has(record['requestId'])){
                 requestHeadersMap.set(record['requestId'], _headers)
+                console.log('Saved request headers for ',record.method,' requestId: ', record['requestId'])
             }
 
 
@@ -192,6 +194,7 @@ function logResponseHeaders(record){
 
             if(!responseHeadersMap.has(record['requestId'])){
                 responseHeadersMap.set(record['requestId'], _headers)
+                console.log("Saved response headers for ",record.method," request id: ", record['requestId'])
             }
 
         }
@@ -206,26 +209,37 @@ browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
 
 function bundleAndSend(record){
 
-    stateManager.shouldRecord().then((shouldRecord)=>{
-        if(shouldRecord){
 
-            //Assemble all the data gathered for this request now that it is complete
-            const _eventDetails = requestMap.get(record['requestId'])
-            const _requestHeaders = requestHeadersMap.get(record['requestId'])
-            const _responseHeaders = responseHeadersMap.get(record['requestId'])
-            //Bind request and response headers
-            _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
-            _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
-            
-            LogUIDispatcher.packageCustomEvent(_eventDetails)
-            //Try to prevent memory leaks.
-            requestMap.delete(record['requestId'])
-            requestHeadersMap.delete(record['requestId'])
-            responseHeadersMap.delete(record['requestId'])
+    //TODO: should get the host programatically.
+    let target_host = "localhost:8088"
+    
+    //Non-GET network requests are filtered
+    if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
+        stateManager.shouldRecord().then((shouldRecord)=>{
+            if(shouldRecord){
+                
+                console.log("bundling all network ",record.method," request info for requestId: ", record['requestId'])
+    
+                //Assemble all the data gathered for this request now that it is complete
+                const _eventDetails = requestMap.get(record['requestId'])
+                const _requestHeaders = requestHeadersMap.get(record['requestId'])
+                const _responseHeaders = responseHeadersMap.get(record['requestId'])
+                //Bind request and response headers
+                _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
+                _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
+                
+                LogUIDispatcher.packageCustomEvent(_eventDetails)
+                //Try to prevent memory leaks.
+                requestMap.delete(record['requestId'])
+                requestHeadersMap.delete(record['requestId'])
+                responseHeadersMap.delete(record['requestId'])
+    
+                
+            }
+        })
+    }
 
-            
-        }
-    })
+
 
 }
 

@@ -1,14 +1,20 @@
-console.log('controls.js says hi')
 
 
 /**
  * Handler to invoke mongo scrape procedure
  */
 
+function isEmpty(value) {
+    return (value == null || (typeof value === "string" && value.trim().length === 0));
+}
 
 $('#scrape_mongo_btn').click(function(event){
-    stateManager.selectedFlight()
-        .then((flight)=>services.scrapeMongo(flight)
+    const esIndex = $('#scrape-index').val()
+    if(isEmpty(esIndex)){
+        showError("Cannot scrape without target ES index!")
+    }else{
+        stateManager.selectedFlight()
+        .then((flight)=>services.scrapeMongo(flight, esIndex)
         .then(_=>{
             $('#scrape-ok').addClass('visible')
             setTimeout(()=>{
@@ -22,6 +28,9 @@ $('#scrape_mongo_btn').click(function(event){
                 $('#scrape-error').removeClass('visible').addClass('hidden')
             }, 5000)
         }))
+    }
+
+
 })
 
 /**
