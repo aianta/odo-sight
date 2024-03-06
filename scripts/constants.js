@@ -19,14 +19,9 @@ CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME = "content scripts<->background"
  */
 _ODO_SIGHT_VALID_STATE_VERISON = "0.1"
 
-/**
- * Odo Sight Option defaults
- */
-_DEFAULT_FLIGHT_DOMAIN = "localhost:8088"
+
 
 /**
  * Odo Sight Support 
  */
-_ODO_BOT_SIGHT_SERVER_HOST = "localhost:8079"
-_ODO_BOT_SIGHT_CONNECTION_CHECK_PATH = "/odo-sight/alive"
 _ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo/v2"

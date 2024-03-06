@@ -29,6 +29,7 @@ var stateManager = (function(){
             sessionReady: false,
             endpoint: 'ws://localhost:8000/ws/endpoint/',
             targetHost: 'localhost:8088',
+            odoSightSupportHost: 'localhost:8079',
             flightAuthToken: undefined,
             eventCacheOverflow: false,
             pageOrigin: undefined,
@@ -105,6 +106,13 @@ var stateManager = (function(){
             return _public.get('targetHost')
         }
         return _public.set('targetHost', targetHost)
+    }
+
+    _public.odoSightSupportHost = function(odoSightSupportHost){
+        if(odoSightSupportHost === undefined){
+            return _public.get('odoSightSupportHost')
+        }
+        return _public.set('odoSightSupportHost', odoSightSupportHost)
     }
 
     _public.jwt = function(jwt){

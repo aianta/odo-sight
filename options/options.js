@@ -32,7 +32,7 @@ function saveOptions(e){
     stateManager.password(document.querySelector('#logui-server-password').value)
     stateManager.endpoint(document.querySelector('#logui-server-endpoint').value)
     stateManager.targetHost(document.querySelector('#target-host').value)
-
+    stateManager.odoSightSupportHost(document.querySelector('#odo-sight-support-host').value)
 
 
 }
@@ -44,7 +44,7 @@ function loadOptions(){
     stateManager.endpoint().then((endpoint)=>{document.querySelector('#logui-server-endpoint').value = endpoint},_=>{document.querySelector('#logui-server-endpoint').value = ''})
     stateManager.logUIConfig().then((config)=>{document.querySelector('#logui-client-config').value = JSON.stringify(config, null, 4)})
     stateManager.targetHost().then((targetHost)=>{document.querySelector('#target-host').value = targetHost},_=>{document.querySelector('#target-host').value = ''})
-    
+    stateManager.odoSightSupportHost().then((odoSightSupportHost)=>{document.querySelector('#odo-sight-support-host').value = odoSightSupportHost}, _=>{document.querySelector('#odo-sight-support-host').value = ''})
 }
 
 function showLogUIConfigError(message){

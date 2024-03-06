@@ -42,7 +42,10 @@ $('#new-flight-btn').click(function(event){
     let appId = btn.getAttribute('app-id')
     let flightName = $('#new-flight-name').val()
 
-    services.createFlight(appId, flightName, _DEFAULT_FLIGHT_DOMAIN)
+    //Flights are created for the target host application
+    stateManager.targetHost().then((targetHost)=>{
+        
+        services.createFlight(appId, flightName, targetHost)
         .then(_=>services.getFlightList(appId)
         .then((flights)=>{
             const createdFlight = flights.find(flight=>flight.name === flightName)
@@ -52,6 +55,7 @@ $('#new-flight-btn').click(function(event){
         .then(_=>services.getFlightToken())
         .then((data)=>stateManager.flightAuthToken(data.flightAuthorisationToken)))
         .then(_=>backToMainFrame())
+    })
 
 })
 

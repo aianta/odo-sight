@@ -11,13 +11,15 @@ var services = (function(){
     var _public = {}
 
     _public.scrapeMongo = function (flight, index){
-        return axios.post(`http://${_ODO_BOT_SIGHT_SERVER_HOST}${_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH}`, {
-            esIndex: index,
-            flightName: flight.name,
-            flightId: flight.id
-        }).then(function(response){
-            return Promise.resolve({
-                statusCode: response.status
+        return stateManager.odoSightSupportHost().then(function(odoSightSupportHost){
+            return axios.post(`http://${odoSightSupportHost}${_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH}`, {
+                esIndex: index,
+                flightName: flight.name,
+                flightId: flight.id
+            }).then(function(response){
+                return Promise.resolve({
+                    statusCode: response.status
+                })
             })
         })
     }
