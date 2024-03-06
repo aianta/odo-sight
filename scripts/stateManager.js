@@ -28,6 +28,7 @@ var stateManager = (function(){
             sessionData: undefined,
             sessionReady: false,
             endpoint: 'ws://localhost:8000/ws/endpoint/',
+            targetHost: 'localhost:8088',
             flightAuthToken: undefined,
             eventCacheOverflow: false,
             pageOrigin: undefined,
@@ -97,6 +98,13 @@ var stateManager = (function(){
             return _public.get('endpoint')
         }
         return _public.set('endpoint', endpoint)
+    }
+
+    _public.targetHost = function(targetHost){
+        if(targetHost === undefined){
+            return _public.get('targetHost')
+        }
+        return _public.set('targetHost', targetHost)
     }
 
     _public.jwt = function(jwt){

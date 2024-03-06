@@ -52,7 +52,13 @@ const responseHeadersMap = new Map()
 
 function logNetworkRequest(record){
 
-    stateManager.shouldRecord().then((shouldRecord)=>{
+    Promise.all([
+        stateManager.shouldRecord(),
+        stateManager.targetHost()
+    ]).then((values)=>{
+
+        const shouldRecord = values[0]
+        const target_host = values[1]
 
         if(shouldRecord){ //Only intercept network requests if the 'shouldRecord' flag is set.
             var _fields = [
@@ -65,11 +71,6 @@ function logNetworkRequest(record){
                 "type",
                 "originUrl"
             ]
-            
-            //TODO: should get the host programatically.
-            let target_host = "localhost:8088"
-        
-
 
 
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
@@ -209,38 +210,47 @@ browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
 
 function bundleAndSend(record){
 
+    Promise.all([
+        stateManager.shouldRecord(),
+        stateManager.targetHost()
+    ]).then((values)=>{
+        const shouldRecord = values[0]
+        const target_host = values[1]
 
-    //TODO: should get the host programatically.
-    let target_host = "localhost:8088"
-    
-    //Non-GET network requests are filtered
-    if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
-        stateManager.shouldRecord().then((shouldRecord)=>{
-            if(shouldRecord){
+        if(shouldRecord){
+            
+            // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
+            //Only capture xmlhttprequests or main_frame events going to the target host
+            //main_frame: Top-level documents loaded into a tab.
+            //Not GET: something is being sent to the server, it's important. 
+            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
                 
-                console.log("bundling all network ",record.method," request info for requestId: ", record['requestId'])
-    
-                //Assemble all the data gathered for this request now that it is complete
-                const _eventDetails = requestMap.get(record['requestId'])
-                const _requestHeaders = requestHeadersMap.get(record['requestId'])
-                const _responseHeaders = responseHeadersMap.get(record['requestId'])
-                //Bind request and response headers
-                _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
-                _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
-                
-                LogUIDispatcher.packageCustomEvent(_eventDetails)
-                //Try to prevent memory leaks.
-                requestMap.delete(record['requestId'])
-                requestHeadersMap.delete(record['requestId'])
-                responseHeadersMap.delete(record['requestId'])
-    
+                    
+                        
+                        console.log("bundling all network ",record.method," request info for requestId: ", record['requestId'])
+            
+                        //Assemble all the data gathered for this request now that it is complete
+                        const _eventDetails = requestMap.get(record['requestId'])
+                        const _requestHeaders = requestHeadersMap.get(record['requestId'])
+                        const _responseHeaders = responseHeadersMap.get(record['requestId'])
+                        //Bind request and response headers
+                        _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
+                        _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
+                        
+                        LogUIDispatcher.packageCustomEvent(_eventDetails)
+                        //Try to prevent memory leaks.
+                        requestMap.delete(record['requestId'])
+                        requestHeadersMap.delete(record['requestId'])
+                        responseHeadersMap.delete(record['requestId'])
+            
+                        
+                    
                 
             }
-        })
-    }
+        }
 
 
-
+    })
 }
 
 browser.webRequest.onCompleted.addListener(bundleAndSend, {
