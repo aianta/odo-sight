@@ -4453,18 +4453,6 @@ var LogUI = (function () {
 
 	var toConsumableArray = _toConsumableArray;
 
-	/*
-	    Some utility/shared functions for the custom LogUI Event handlers, used by odo-bot.
-	    
-	    @author: Alex Ianta
-	    @date: 2023-02-06
-
-	*/
-
-	/**
-	 * A list of dom properties to log when including the root element in a custom event.
-	 */
-	var _root_dom_properties = ['outerHTML', 'outerText'];
 	/**
 	 * A list of dom properties to log when including an element in a custom event.
 	 */
@@ -4525,6 +4513,32 @@ var LogUI = (function () {
 
 	  _handler.init = function () {
 	    return;
+	  };
+	  /**
+	   * Returns a filtered snapshot of the DOM 
+	   */
+
+
+	  var captureDOMSnapshot = function captureDOMSnapshot() {
+	    var fullHtml = document.documentElement.outerHTML;
+	    var scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi; //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+
+	    var noScripts = fullHtml.replaceAll(scriptRegex, ""); //Clear all scripts.
+
+	    var xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi;
+	    var noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, ""); //Clear all XML character data
+
+	    var styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi;
+	    var noStyle = noXMLCDATA.replaceAll(styleRegex, ""); //Clear all css styles
+
+	    var svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi;
+	    var noSvgPaths = noStyle.replaceAll(svgPathsRegex, ""); //Clear all paths inside SVGs
+
+	    var result = {
+	      outerHTML: noSvgPaths,
+	      outerText: document.documentElement.outerText
+	    };
+	    return JSON.stringify(result);
 	  }; // Handle the click event
 
 
@@ -4561,7 +4575,7 @@ var LogUI = (function () {
 	      type: browserEvent.type,
 	      xpath: getElementTreeXPath(browserEvent.target),
 	      element: JSON.stringify(eventPath[0], _dom_properties_ext),
-	      domSnapshot: JSON.stringify(rootElement, _root_dom_properties)
+	      domSnapshot: captureDOMSnapshot()
 	    };
 
 	    if (trackingConfig.hasOwnProperty('name')) {
@@ -5096,6 +5110,32 @@ var LogUI = (function () {
 
 	  _handler.init = function () {
 	    return;
+	  };
+	  /**
+	   * Returns a filtered snapshot of the DOM 
+	   */
+
+
+	  var captureDOMSnapshot = function captureDOMSnapshot() {
+	    var fullHtml = document.documentElement.outerHTML;
+	    var scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi; //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+
+	    var noScripts = fullHtml.replaceAll(scriptRegex, ""); //Clear all scripts.
+
+	    var xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi;
+	    var noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, ""); //Clear all XML character data
+
+	    var styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi;
+	    var noStyle = noXMLCDATA.replaceAll(styleRegex, ""); //Clear all css styles
+
+	    var svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi;
+	    var noSvgPaths = noStyle.replaceAll(svgPathsRegex, ""); //Clear all paths inside SVGs
+
+	    var result = {
+	      outerHTML: noSvgPaths,
+	      outerText: document.documentElement.outerText
+	    };
+	    return JSON.stringify(result);
 	  }; //Handle the input event
 
 
@@ -5112,7 +5152,7 @@ var LogUI = (function () {
 	      xpath: getElementTreeXPath(browserEvent.target),
 	      element: JSON.stringify(browserEvent.target, _dom_properties_ext),
 	      //The actual input element should include extended properties.
-	      domSnapshot: JSON.stringify(rootElement, _root_dom_properties),
+	      domSnapshot: captureDOMSnapshot(),
 	      validity_badInput: validityState.badInput,
 	      validity_customError: validityState.customError,
 	      validity_patternMismatch: validityState.patternMismatch,
@@ -6799,7 +6839,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Mon Nov 06 2023 13:04:35 GMT-0700 (Mountain Standard Time)';
+	  _public.buildDate = 'Wed May 01 2024 11:23:11 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */
