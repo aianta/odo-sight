@@ -9,7 +9,10 @@ const _defaultConfig = {
     },
     browserEvents: {
       trackCursor: false,
-      URLChanges: true
+      URLChanges: true,
+      contextMenu: false,
+      pageFocus: false,
+      pageResize: false
     },
     trackingConfiguration: {
         'page-load':{

@@ -20,7 +20,8 @@
         "storage",
         "webRequest",
         "webRequestBlocking",
-        "webRequestFilterResponse"
+        "webRequestFilterResponse",
+        "webNavigation"
     ],
     "background":{
         "scripts": [

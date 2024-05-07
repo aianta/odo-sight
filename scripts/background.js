@@ -4,11 +4,34 @@
  * 
  */
 
+
+
+
 //Bind init function to appropriate runtime events. 
 //This is done here to avoid double initialization that would occur if it was done in 'stateManager.js'. 
 //Double initialization would happen because stateManager.js is also loaded as a content script.
 browser.runtime.onStartup.addListener(stateManager.init)
 browser.runtime.onInstalled.addListener(stateManager.init)
+
+/**
+ * Web Navigation Trasition Interception
+ * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onCommitted
+ * 
+ * Odo sight intercepts navigation requests to distinguish between those invoked through the underlying web-application,
+ * and those initiated by the user by using the address bar. 
+ */
+browser.webNavigation.onCommitted.addListener(onNavigationEvent)
+
+function onNavigationEvent(details){
+
+    console.log('Navigation Event!')
+    console.log(details)
+
+    
+
+}
+
+
 
 browser.runtime.onMessage.addListener(handleMessage)
 
@@ -51,6 +74,8 @@ const requestHeadersMap = new Map()
 const responseHeadersMap = new Map()
 
 function logNetworkRequest(record){
+
+
 
     Promise.all([
         stateManager.shouldRecord(),
@@ -98,7 +123,7 @@ function logNetworkRequest(record){
                 //See redirect comments above. 
                 if(!requestMap.has(record['requestId'])){
                     requestMap.set(record['requestId'], eventDetails)
-                    console.log("Saved new request to request map with id: ", record['requestId'])
+                    //console.log("Saved new request to request map with id: ", record['requestId'])
                 }
 
 
@@ -159,15 +184,19 @@ function logRequestHeaders(record){
             for (const header of record.requestHeaders){
                 //https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/HttpHeaders
                 _headers[header.name] = header.value?header.value:header.binaryValue
-
+                
+                
             }
+            
+            console.log('odo-sight-flag: ', _headers['odo-sight-flag'], " ",  record['requestId'])
+
 
 
             //If this is the first time we've seen this request id, store it's details for packaging later.
             //See redirect comments above. 
             if(!requestHeadersMap.has(record['requestId'])){
                 requestHeadersMap.set(record['requestId'], _headers)
-                console.log('Saved request headers for ',record.method,' requestId: ', record['requestId'])
+                //console.log('Saved request headers for ',record.method,' requestId: ', record['requestId'])
             }
 
 
@@ -195,7 +224,7 @@ function logResponseHeaders(record){
 
             if(!responseHeadersMap.has(record['requestId'])){
                 responseHeadersMap.set(record['requestId'], _headers)
-                console.log("Saved response headers for ",record.method," request id: ", record['requestId'])
+                //console.log("Saved response headers for ",record.method," request id: ", record['requestId'])
             }
 
         }

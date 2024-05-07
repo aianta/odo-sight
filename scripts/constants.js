@@ -1,7 +1,7 @@
 /**
  * LOG UI Server
  */
-_LOG_UI_SERVER_HOST = "localhost:8000"
+_LOG_UI_SERVER_HOST = "localhost:8000" //TODO Make this configurable via addon options
 _LOG_UI_JWT_PATH = "/api/user/auth/"
 _LOG_UI_APP_LIST_PATH = "/api/application/list/"
 _LOG_UI_FLIGHT_LIST_PATH = "/api/flight/list/"
