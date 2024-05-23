@@ -41,9 +41,9 @@ logUIScript.onload = function(){
 
 handlerMagicScript.onload = function(){this.remove();};
 
-(document.head || document.documentElement).appendChild(handlerMagicScript);
-(document.head || document.documentElement).appendChild(logUIScript);
-(document.head || document.documentElement).appendChild(domeffectsScript);
+(document.head || document.documentElement).prepend(handlerMagicScript);
+(document.head || document.documentElement).prepend(logUIScript);
+(document.head || document.documentElement).prepend(domeffectsScript);
 
 
 

@@ -1,55 +1,3 @@
-if(!XMLHttpRequest.prototype.realFetch){
-  XMLHttpRequest.prototype.realFetch = window.fetch
-}
-
-window.fetch = function(){
-
-  const options = arguments[1]
-
-  if(options !== undefined){
-
-    console.log('Fetch Stacktrace')
-    const stackTrace = Error().stack
-    console.log(stackTrace)
-
-    if(stackTrace.includes('Node.prototype.addEventListener')){
-      options.headers['odo-sight-flag'] = 'true'
-    }else{
-      options.headers['odo-sight-flag'] = 'false'
-    }
-  }
-
-  return XMLHttpRequest.prototype.realFetch.apply(this, arguments)
-}
-
-
-if(!XMLHttpRequest.prototype.realSend){//Deeply important, see 2nd stackoverflow post.
-  XMLHttpRequest.prototype.realSend = XMLHttpRequest.prototype.send
-}
-
-
-
-XMLHttpRequest.prototype.send = function(body){
-  console.log("Intercepted XMLHttpRequest! ")
-
-  console.log(console.trace())
-
-  console.log("Error stack trace!")
-  //Get the stack at the current locaiton. For more details on the technique see:
-  //https://stackoverflow.com/questions/43236925/print-current-stack-trace-in-javascript/57238353#57238353
-
-  let  stackTrace = Error().stack
-  console.log(stackTrace)
-
-  if(stackTrace.includes('Node.prototype.addEventListener')){
-    this.setRequestHeader("odo-sight-flag", "true")
-  }else{
-    this.setRequestHeader("odo-sight-flag", "false")
-  }
-  
-
-  this.realSend(body)
-}
 
 
 /**
@@ -68,6 +16,7 @@ if(!Node.prototype.realAddEventListener){ //Deeply important, see 2nd stackoverf
 
 Node.prototype.addEventListener = function(a,b,c){
     console.log('modified addEventListenerInvoked!')
+    //console.log(this)
     
     this.realAddEventListener(a,b,c)
     
@@ -84,6 +33,7 @@ Node.prototype.addEventListener = function(a,b,c){
         let newLastListenerInfo = []
         //If we do have a LogUI handler here that's not already in first place. Let's ensure it executes first by:
         //removing all other listeners, adding the logUI listener, then adding the other listeners back.
+
         let otherListeners = this.lastListenerInfo.filter(listener=>!listener.b.toString().startsWith('function (browserEvent) {'))
         for (let listener of otherListeners){
           this.removeEventListener(listener.a, listener.b, listener.c)

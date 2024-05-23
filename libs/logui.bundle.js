@@ -5399,7 +5399,7 @@ var LogUI = (function () {
 	     * a POST request is made just before the page unloads, LogUI will lose that event
 	     * because it will unload from the page before the network request can be captured. 
 	     * Odo-sight will send the network event to LogUI again once it is re-loaded on the 
-	     * next page, but at this point sinificant amounts of time have passed. So to keep events
+	     * next page, but at this point significant amounts of time have passed. So to keep events
 	     * ordered properly, for network request events, we overwrite timestamps.eventTimestamp 
 	     * with the one provided in the eventDetails. 
 	     * 
@@ -6094,6 +6094,8 @@ var LogUI = (function () {
 	  var _public = {};
 
 	  _public.logUIEventCallback = function (browserEvent) {
+	    browserEvent._eventTime = performance.now();
+	    console.log('EVENT TIME: ', browserEvent.timeStamp);
 	    var elementDOMProperties = Config.DOMProperties.get(browserEvent.currentTarget); // console.log("Event happened");
 	    // console.log(browserEvent.target);
 	    // console.log(browserEvent.currentTarget); // This may be the correct thing to use instead of .target - need to test this some more.
@@ -6839,7 +6841,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed May 01 2024 11:23:11 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Wed May 22 2024 17:41:35 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */

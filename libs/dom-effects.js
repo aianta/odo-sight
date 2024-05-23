@@ -28,6 +28,17 @@
         "text"
     ]
 
+
+    /**
+     * https://stackoverflow.com/questions/19669786/check-if-element-is-visible-in-dom
+     * @param {*} element 
+     * @returns true if hidden
+     */
+    const isHidden = function(element){
+        //TODO: fix for elements with postion: fixed.
+        return (element.offsetParent === null)
+    }
+
     /**
      * Returns a filtered snapshot of the DOM 
      */
@@ -124,9 +135,6 @@
         return data
     }
 
-    // window.addEventListener('load', (event)=>{
-    //     window.LogUI.stop()
-    // })
 
     /* Following the documentation from: 
      * https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
@@ -150,23 +158,25 @@
             let eventDetails = {
                 name:'DOM_EFFECT'
             }
+
             
             /**
              * Watch for changes in the style attribute of elements, 
-             * specifically for the 'display' property. 
-             * If 'display' has changed since last we saw it, fire off the appropriate
+             * specifically for the 'isHidden' property. 
+             * If 'isHidden' has changed since last we saw it, fire off the appropriate
              * 'show' or 'hide' log event.
              */
             if (mutation.type === 'attributes' &&
-                mutation.target.lastDisplayValue &&
-                mutation.target.style.display !== mutation.target.lastDisplayValue){
-                
-                    eventDetails.action = mutation.target.style.display !== "none"? "show":"hide"
+                isHidden(mutation.target) !== mutation.target.isHidden){
+
+                    console.log("DOM EFFECT EVENT TIME: ", performance.now())
+
+                    eventDetails.action = isHidden(mutation.target)? "hide":"show"
                     eventDetails.nodes = []
                     eventDetails.nodes.push(stripDataFromNode(mutation.target))
-                    console.log("OLD:",mutation.target.lastDisplayValue, "NEW:", mutation.target.style.display, "@", getElementTreeXPath(mutation.target))
-                    //update the last display value
-                    mutation.target.lastDisplayValue = mutation.target.style.display
+                    console.log("OLD isHidden:",mutation.target.isHidden, "NEW:", isHidden(mutation.target), "@", getElementTreeXPath(mutation.target))
+                    //update the isHidden value
+                    mutation.target.isHidden = isHidden(mutation.target)
             }
 
             if (mutation.type === "childList"){
@@ -180,9 +190,10 @@
                     //Mark elements with display CSS property set, store that 'last' display value in their properties.
                     //This allows us to fire off 'show' and 'hide' events on 'style' attribute mutations.
                     Array.from(mutation.addedNodes)
-                        .filter(node=>node instanceof Element && node.style.display !== "")
+                        .filter(node=>node instanceof Element)
+                        //.filter(node=>node instanceof Element && node.style.display !== "")
                         .forEach(element=>{
-                            element.lastDisplayValue = element.style.display
+                            element.isHidden = isHidden(element)
                         })
 
                 }
@@ -229,6 +240,11 @@
     }
 
     const observer = new MutationObserver(callback);
+
+    //Try and set up 'old' isHidden values for as many elements as we can. 
+    document.querySelectorAll('*').forEach(node=>{
+        node.isHidden = node.offsetParent === null
+    })
 
     /* Getting the root element on the page
      * https://developer.mozilla.org/en-US/docs/Web/API/Document/documentElement
