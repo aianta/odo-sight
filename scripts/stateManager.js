@@ -3,6 +3,21 @@
  * @date October 31 2023
  * 
  * IIFE function that implements a state API for use throughout the extension. 
+ * 
+ * There are 4 main states in which the extension may find itself.
+ * 
+ * 1) IDLE: In this state the extension is not doing anything in the background, this state
+ * usually inidicates that the add-on has not yet been configured or is misconfigured. 
+ * 
+ * 2) RECORDING: In this state the extension records user interactions and saves them to local storage.
+ * 
+ * 3) TRANSMITTING: In this state the extension transmits user interactions directly to the Odo Bot server.
+ * This state should be active during a request for help/guidance, where the user is being directed to some 
+ * place in the application, and odo bot needs to receive feedback on the user's progress. 
+ * 
+ * 4) TRACING: This is a manually controlled recording state, for recording traces that are sent to the LOG UI server.
+ * Traces recorded in this fashion are used to construct the application model for Odo Bot. 
+ * 
  */
 
 var stateManager = (function(){
@@ -17,27 +32,43 @@ var stateManager = (function(){
         })
     }
 
+
+
     function setupBlankState(){
         const state = {
             stateVersion: `${_ODO_SIGHT_VALID_STATE_VERISON}`, // version of the stored state data. Incremented when breaking changes are made.
-            shouldRecord: false, //The target LogUI state, whether it should be recording or not.
-            isRecording: false, //The actual LogUI state, whether it is recording or not.
+            isIdle: true,
+            shouldRecord: false,   //The target passive recording state
+            isRecording: false,    //The actual passive recording state
+            shouldTransmit: false, //The target real-time transmission state
+            isTransmitting: false, //The actual real-time transmission state
+            shouldTrace: false,    //The target LogUI state, whether it should be recording or not.
+            isTracing: false,      //The actual LogUI state, whether it is recording or not.
             logUIConfig: {},
-            jwt: undefined,
-            sessionId: undefined,
+            jwt: undefined, //Authentication token for communication with LogUI Server
+            sessionId: undefined, 
             sessionData: undefined,
             sessionReady: false,
             endpoint: 'ws://localhost:8000/ws/endpoint/',
             targetHost: 'localhost:8088',
             odoSightSupportHost: 'localhost:8079',
-            flightAuthToken: undefined,
+            flightAuthToken: undefined, 
             eventCacheOverflow: false,
-            pageOrigin: undefined,
-            username: undefined,
-            password: undefined
+            pageOrigin: undefined, 
+            username: undefined, //LogUI Server username
+            password: undefined, //LogUI Server password
+            localContext: undefined, 
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
+    }
+
+
+    _public.localContext = function(data){
+        if(data === undefined){
+            return _public.get('localContext')
+        }
+        return _public.set('localContext', data)
     }
 
     _public.clearSessionId = function(){
@@ -150,6 +181,21 @@ var stateManager = (function(){
         return _public.set('sessionReady', flag)
     }
 
+    _public.shouldTransmit = function(flag){
+        if(flag === undefined){
+            return _public.get('shouldTransmit')
+        }
+        return _public.set('shouldTransmit', flag)
+    }
+
+    _public.shouldTrace = function(flag){
+        if(flag === undefined){
+            return _public.get('shouldTrace')
+        }
+        return _public.set('shouldTrace', flag)
+    }    
+
+
     _public.shouldRecord = function(flag){
         if(flag === undefined){
             return _public.get('shouldRecord')
@@ -190,6 +236,37 @@ var stateManager = (function(){
         const data = {}
         data[key] = value
         return browser.storage.local.set(data)
+    }
+
+    /**
+     * Adds an element or array to an array stored in the odo sight state.
+     * @param {*} key to which the value should be added
+     * @param {*} value to be added to the array under the specified key
+     * @returns 
+     */
+    _public.add = function(key, value){
+        if(value === undefined){
+            return Promise.reject("Cannot add because no value has been passed to add.")
+        }
+
+
+        return browser.storage.local.get(key)
+            .then((data)=>{
+                //Key must exist.
+                if(!(key in data)){
+                    return Promise.reject(`${key} does not exist in the stored odo sight state.`)
+                }
+                
+                //Key-value must be array
+                if(!Array.isArray(data[key])){
+                    return Promise.reject(`Cannot add item to ${key} in odo sight state, because ${key} value is not an array!`)
+                }
+
+                return _public.set(key, data[key].concat(value))
+            
+            }
+
+        )
     }
 
     /**

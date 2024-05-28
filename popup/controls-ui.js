@@ -1,16 +1,22 @@
 console.log('controls-ui.js says hi!')
 
+$('#back-to-menu-btn').button(
+    {
+        icon:'fa-solid fa-arrow-left',
+        label: 'Back to Menu'
+    }
+).click(_=>{window.location.href="/popup/menu.html"})
 
 $('#app-select-frame').addClass('hidden')
 $('#flight-select-frame').addClass('hidden')
 
 $('#start-btn').button({
     icon: 'fa-solid fa-circle red'
-}).click(_=>stateManager.set('shouldRecord', true))
+}).click(_=>stateManager.set('shouldTrace', true))
 
 $('#stop-btn').button({
     icon: 'fa-solid fa-square black'
-}).click(_=>stateManager.set('shouldRecord', false))
+}).click(_=>stateManager.set('shouldTrace', false))
 
 $('#flight-back-btn').button({
     icon: 'fa-solid fa-arrow-left'
@@ -67,20 +73,20 @@ function refreshUI(){
     //Update UI as a function of the recording state.
     Promise.all(
         [
-            stateManager.get('shouldRecord'),
-            stateManager.get('isRecording')
+            stateManager.get('shouldTrace'),
+            stateManager.get('isTracing')
         ]
     ).then((values)=>{
-        const shouldRecord = values[0]
-        const isRecording = values[1]
+        const shouldTrace = values[0]
+        const isTracing = values[1]
 
-        if(shouldRecord){
+        if(shouldTrace){
             $('#stop-recording').addClass('visible').removeClass('hidden')
             $('#start-recording').addClass('hidden').removeClass('visible')
             return Promise.resolve()
         }
 
-        if(!shouldRecord){
+        if(!shouldTrace){
             $('#start-recording').addClass('visible').removeClass('hidden')
             $('#stop-recording').addClass('hidden').removeClass('visible')
             return Promise.resolve()

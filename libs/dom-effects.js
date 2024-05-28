@@ -43,6 +43,8 @@
      * Returns a filtered snapshot of the DOM 
      */
     const captureDOMSnapshot = function(){
+        document.querySelectorAll('*').forEach(node=>node.setAttribute('_odo_isHidden', isHidden(node)))
+
         const fullHtml = document.documentElement.outerHTML
         const scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
         const noScripts = fullHtml.replaceAll(scriptRegex, "") //Clear all scripts.

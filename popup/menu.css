@@ -1,0 +1,12 @@
+.menu-container{
+    display: flex;
+}
+
+.mode-btn{
+    width: 100%
+}
+
+.mode-container{
+    max-width: 180px;
+    padding: 5px;
+}

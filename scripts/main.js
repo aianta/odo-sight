@@ -24,13 +24,13 @@ domeffectsScript.onload = function(){this.remove();};
 logUIScript.onload = function(){
     //Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
     Promise.all([
-        stateManager.shouldRecord(),
+        stateManager.shouldTrace(),
         stateManager.sessionReady()
     ]).then((values)=>{
-        const shouldRecord = values[0]
+        const shouldTrace = values[0]
         const sessionReady = values[1]
 
-        if(shouldRecord && sessionReady){
+        if(shouldTrace && sessionReady){
             startLogUI2()
         }
     })
@@ -51,13 +51,13 @@ handlerMagicScript.onload = function(){this.remove();};
 
 function checkState(){
     Promise.all([
-        stateManager.shouldRecord(),
+        stateManager.shouldTrace(),
         stateManager.sessionReady()
     ]).then((values)=>{
-        const shouldRecord = values[0]
+        const shouldTrace = values[0]
         const sessionReady = values[1]
 
-        if(shouldRecord && sessionReady){
+        if(shouldTrace && sessionReady){
             startLogUI2()
         }
     })
@@ -70,14 +70,14 @@ function observeStateChange(changes){
         checkState()
     }
 
-    //If the new 'shouldRecord' value is true, set the page origin.
-    if('shouldRecord' in changes && changes['shouldRecord'].newValue){
+    //If the new 'shouldTrace' value is true, set the page origin.
+    if('shouldTrace' in changes && changes['shouldTrace'].newValue){
         //Report the page orign
         stateManager.pageOrigin(window.location.origin);
     }
 
-    //If the new 'shouldRecord' value is false, stop the LogUI client
-    if('shouldRecord' in changes && !changes['shouldRecord'].newValue){
+    //If the new 'shouldTrace' value is false, stop the LogUI client
+    if('shouldTrace' in changes && !changes['shouldTrace'].newValue){
         stopLogUI2()
     }
 

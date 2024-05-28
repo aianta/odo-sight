@@ -5,8 +5,6 @@
  */
 
 
-
-
 //Bind init function to appropriate runtime events. 
 //This is done here to avoid double initialization that would occur if it was done in 'stateManager.js'. 
 //Double initialization would happen because stateManager.js is also loaded as a content script.
@@ -38,7 +36,8 @@ browser.runtime.onMessage.addListener(handleMessage)
 function handleMessage(message){
     if('payload' in message){
         //console.log(`Got LogUI event ${JSON.stringify(message.payload, null, 4)}`)
-        LogUIDispatcher.sendObject(message.payload)
+        //LogUIDispatcher.sendObject(message.payload)
+        LocalDispatcher.sendObject(message.payload)
 
         if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
             LogUIDispatcher.stop()
@@ -78,14 +77,14 @@ function logNetworkRequest(record){
 
 
     Promise.all([
-        stateManager.shouldRecord(),
+        stateManager.shouldTrace(),
         stateManager.targetHost()
     ]).then((values)=>{
 
-        const shouldRecord = values[0]
+        const shouldTrace = values[0]
         const target_host = values[1]
 
-        if(shouldRecord){ //Only intercept network requests if the 'shouldRecord' flag is set.
+        if(shouldTrace){ //Only intercept network requests if the 'shouldTrace' flag is set.
             var _fields = [
                 "timeStamp", //The sky will fall if this is not included.
                 "requestId",
@@ -163,7 +162,7 @@ function logNetworkRequest(record){
             }
         }
 
-    }, _=>console.error('Missing shouldRecord flag.'))
+    }, _=>console.error('Missing shouldTrace flag.'))
 
 
 
@@ -175,9 +174,9 @@ browser.webRequest.onBeforeRequest.addListener(logNetworkRequest ,{
 
 
 function logRequestHeaders(record){
-    stateManager.shouldRecord().then((shouldRecord)=>{
+    stateManager.shouldTrace().then((shouldTrace)=>{
 
-        if(shouldRecord){
+        if(shouldTrace){
 
             const _headers = {}
 
@@ -212,8 +211,8 @@ browser.webRequest.onSendHeaders.addListener(logRequestHeaders, {
 
 
 function logResponseHeaders(record){
-    stateManager.shouldRecord().then((shouldRecord)=>{
-        if(shouldRecord){
+    stateManager.shouldTrace().then((shouldTrace)=>{
+        if(shouldTrace){
 
             const _headers = {}
 
@@ -240,13 +239,13 @@ browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
 function bundleAndSend(record){
 
     Promise.all([
-        stateManager.shouldRecord(),
+        stateManager.shouldTrace(),
         stateManager.targetHost()
     ]).then((values)=>{
-        const shouldRecord = values[0]
+        const shouldTrace = values[0]
         const target_host = values[1]
 
-        if(shouldRecord){
+        if(shouldTrace){
             
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
             //Only capture xmlhttprequests or main_frame events going to the target host

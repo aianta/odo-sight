@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" href="/popup/menu.css"/>
+        <link rel="stylesheet" href="/libs/jquery-ui.min.css"/>
+    </head>
+    <body style="min-width: 400px;">
+        <div id="header">
+            <h1>Welcome!</h1>
+            <p>Please select which mode you would like the extension to run in.</p>
+        </div>
+        <div class="menu-container">
+            <div class="mode-container">
+                <span id="bot-mode-btn" class="mode-btn"></span>
+                <p>Select bot mode if you would like to ask Odo Bot for help navigating an app.</p>    
+            </div>
+            <div class="mode-container">
+                <span id="sight-mode-btn" class="mode-btn"></span>
+                <p>Select sight mode if you would like to record traces for an application model that can later be used by Odo Bot to help users navigate your app.</p>    
+            </div>
+        </div>
+
+        <script src="/scripts/globalThis.js"></script>
+        <script scr="/libs/raf-ff-fix.js"></script>
+        <script src="/libs/fontawesome.js"></script>
+        <script src="/libs/jquery-3.6.4.min.js"></script>
+        <script src="/libs/jquery-ui.min.js"></script>
+        <script src="/libs/axios.min.js"></script>
+        <script src="/scripts/constants.js"></script>
+        <script src="/scripts/stateManager.js"></script>
+        <script src="/scripts/services.js"></script>
+        <script src="./menu-ui.js"></script>
+
+    </body>
+
+</html>

@@ -51,8 +51,8 @@ var LogUIDispatcher = (function() {
             _websocketReconnectionReference = null;
         }
 
+        //Start websocket connection and clear cache
         _initWebsocket();
-
         _cache = [];
 
         _isActive = true;
@@ -356,7 +356,7 @@ var LogUIDispatcher = (function() {
     }
 
     _public.handleStateChange = function(changes){
-        if('shouldRecord' in changes && changes['shouldRecord'].newValue){
+        if('shouldTrace' in changes && changes['shouldTrace'].newValue){
             Promise.all([
                 stateManager.endpoint(),
                 stateManager.flightAuthToken()

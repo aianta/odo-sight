@@ -30,6 +30,7 @@
             "/libs/axios.min.js",
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
+            "/scripts/localDispatcher.js",
             "/scripts/background.js"
             ]
     },
@@ -40,8 +41,8 @@
         "default_icon":{
             "48":"informly_icon.png"
         },
-        "default_popup": "popup/controls.html",
-        "default_title": "Odo Sight Control Panel"
+        "default_popup": "popup/menu.html",
+        "default_title": "Extension Control Panel"
     },
     "web_accessible_resources": [
         {

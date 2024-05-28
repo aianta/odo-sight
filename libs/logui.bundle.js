@@ -6202,7 +6202,7 @@ var LogUI = (function () {
 	    try {
 	      for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
 	        var eventName = _step3.value;
-	        element.addEventListener(eventName, EventCallbackHandler.logUIEventCallback);
+	        element.addEventListener(eventName, EventCallbackHandler.logUIEventCallback, true);
 	      }
 	    } catch (err) {
 	      _iterator3.e(err);
@@ -6841,7 +6841,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed May 22 2024 17:41:35 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Thu May 23 2024 14:36:49 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */
