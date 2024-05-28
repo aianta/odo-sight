@@ -47,7 +47,8 @@ var LocalDispatcher = (function() {
         _cache = null;
         _isActive = false;
         _sessionID = null;
-        stateManager.clearSessionId()
+        await stateManager.clearSessionId()
+        await stateManager.localContext([])
     };
 
     _public.isActive = function() {

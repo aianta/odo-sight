@@ -36,12 +36,43 @@ browser.runtime.onMessage.addListener(handleMessage)
 function handleMessage(message){
     if('payload' in message){
         //console.log(`Got LogUI event ${JSON.stringify(message.payload, null, 4)}`)
-        //LogUIDispatcher.sendObject(message.payload)
-        LocalDispatcher.sendObject(message.payload)
 
-        if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
-            LogUIDispatcher.stop()
-        }
+        stateManager.boundDispatcher().then(
+            _dispatcher=>{
+
+                switch(_dispatcher){
+                    case "local":
+                        LocalDispatcher.sendObject(message.payload)
+                        break;
+                    case "logui":
+                        LogUIDispatcher.sendObject(message.payload)
+                        break;
+                    case "realtime":
+                        //TODO
+                        break;
+                    default:
+                        console.log("Unrecognized boundDispatcher ", _dispatcher)
+                }
+
+                if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
+                    switch(_dispatcher){
+                        case "local":
+                            LocalDispatcher.stop()
+                            break;
+                        case "logui":
+                            LogUIDispatcher.stop()
+                            break;
+                        case "realtime":
+                            //TODO
+                            break;
+                        default:
+                            console.log("Unrecognized boundDispatcher ", _dispatcher)
+                    }
+                    
+                }
+
+            }
+        )       
     }
 }
 

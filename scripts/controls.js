@@ -1,4 +1,10 @@
+/**
+ * Set the bound dispatcher to 'logui' if this file is being executed, 
+ * the user has opened sight mode, and recordings should be sent to the 
+ * LogUI server. 
+ */
 
+stateManager.boundDispatcher('logui')
 
 /**
  * Handler to invoke mongo scrape procedure
