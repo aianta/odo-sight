@@ -41,7 +41,7 @@
         "default_icon":{
             "48":"informly_icon.png"
         },
-        "default_popup": "popup/menu.html",
+        "default_popup": "popup/menu/menu.html",
         "default_title": "Extension Control Panel"
     },
     "web_accessible_resources": [

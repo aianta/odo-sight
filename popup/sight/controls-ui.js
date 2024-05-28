@@ -5,7 +5,7 @@ $('#back-to-menu-btn').button(
         icon:'fa-solid fa-arrow-left',
         label: 'Back to Menu'
     }
-).click(_=>{window.location.href="/popup/menu.html"})
+).click(_=>{window.location.href="/popup/menu/menu.html"})
 
 $('#app-select-frame').addClass('hidden')
 $('#flight-select-frame').addClass('hidden')
