@@ -88,12 +88,14 @@ function refreshUI(){
         if(shouldTrace){
             $('#stop-recording').addClass('visible').removeClass('hidden')
             $('#start-recording').addClass('hidden').removeClass('visible')
+            $('#back-to-menu-btn').button("option", "disabled", true)
             return Promise.resolve()
         }
 
         if(!shouldTrace){
             $('#start-recording').addClass('visible').removeClass('hidden')
             $('#stop-recording').addClass('hidden').removeClass('visible')
+            $('#back-to-menu-btn').button("option", "disabled", false)
             return Promise.resolve()
         }
 

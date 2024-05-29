@@ -19,4 +19,4 @@ $('#sight-mode-btn').button({
     window.location.href="/popup/sight/controls.html"
 })
 
-stateManager.set('shouldTrace', false)
+stateManager.set('shouldRecord', false)

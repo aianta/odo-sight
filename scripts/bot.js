@@ -1,2 +1,2 @@
 stateManager.boundDispatcher('local')
-stateManager.set('shouldTrace', true)
+stateManager.set('shouldRecord', true)

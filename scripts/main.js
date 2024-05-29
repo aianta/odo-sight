@@ -65,6 +65,18 @@ function checkState(){
 
 function observeStateChange(changes){
 
+    //If the new 'shouldRecord' value is true, start the LogUI client. 
+    //This is primarily used by the bot mode via bot.js, to start the client without the need to have a session id ready.
+    if('shouldRecord' in changes && changes['shouldRecord'].newValue){
+        startLogUI3()
+    }
+
+    //If the new 'shouldRecord' value is false, stop the LogUI client
+    //This is primarily used by menu-ui.js to stop passive recording or transmitting. 
+    if('shouldRecord' in changes && !changes['shouldRecord'].newValue){
+        stopLogUI2()
+    }
+
     //If the new 'sessionReady' value is true, start the LogUI client
     if ('sessionReady' in changes && changes['sessionReady'].newValue){
         checkState()
@@ -73,6 +85,7 @@ function observeStateChange(changes){
     //If the new 'shouldTrace' value is true, set the page origin.
     if('shouldTrace' in changes && changes['shouldTrace'].newValue){
         //Report the page orign
+        console.log('Setting page origin: ', window.location.origin)
         stateManager.pageOrigin(window.location.origin);
     }
 
@@ -133,6 +146,25 @@ function sendSessionInfo(data){
     })
 }
 
+/**
+ * Starts LogUI client without setting an endpoint or flight auth token, 
+ * for use in bot mode.
+ */
+function startLogUI3(){
+    stateManager.logUIConfig().then(config=>{
+        window.postMessage({
+            origin: 'main.js',
+            type: 'START_LOGUI',
+            config: config
+        })
+        console.log('sent start command to logui.bundle.js')
+    })
+}
+
+/**
+ * Starts LogUI client with endpoint and flight auth token,
+ * for use in sight mode. 
+ */
 function startLogUI2(){
     Promise.all([
         stateManager.endpoint(),
