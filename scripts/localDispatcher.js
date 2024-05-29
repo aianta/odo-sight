@@ -21,7 +21,7 @@
 var LocalDispatcher = (function() {
     var _public = {};
     var _isActive = false;
-    var _cacheSize = 10 // The maximum number of stored events that can be in the cache before flushing.
+    var _cacheSize = 10000 // The maximum number of stored events that can be in the cache before flushing.
     var _libraryLoadTimestamp = null;  // The time at which the dispatcher loads -- for measuring the beginning of a session more accurately.
     var _maximumCacheSize = 1000;  // When no connection is present, this is the cache size we shut down LogUI at.
     var _sessionID = null;
@@ -34,12 +34,25 @@ var LocalDispatcher = (function() {
 
 
     _public.init = function() {
-
-        //Reset the local contex
-        _initLocalContext();
         _cache = [];
-
         _isActive = true;
+        //Reset the local contex
+        stateManager.localContext([]).then(_=>{
+            const sessionData = {
+                sessionID: crypto.randomUUID(),
+                fresh: true,
+                sessionStartTimestamp: Date.now(),
+                libraryStartTimestamp: Date.now()
+            }
+            
+
+            _sessionID = sessionData.sessionID;
+
+            return stateManager.sessionId(sessionData.sessionID)
+            .then(_=>stateManager.sessionData(sessionData)
+            .then(_=>stateManager.sessionReady(true)))
+        })
+        
         return true;
     };
 
@@ -56,7 +69,9 @@ var LocalDispatcher = (function() {
     };
 
     _public.sendObject = function(objectToSend) {
-        if (_public.isActive()) {
+        console.log('got send object')
+
+        if(objectToSend.sessionID === _sessionID){
             _cache.push(objectToSend);
 
 
@@ -66,13 +81,11 @@ var LocalDispatcher = (function() {
 
             return;
         }
+      
 
-        throw Error('You cannot send a message when LogUI is not active.');
+
+        //throw Error('You cannot send a message when LogUI is not active.');
     };
-
-    var _initLocalContext = function(){
-        stateManager.localContext([]) //Reset the localContext to an empty array
-    }
 
     var _getMessageObject = function(messageType, payload) {
         return {
@@ -135,7 +148,7 @@ var LocalDispatcher = (function() {
     }
 
     _public.handleStateChange = function(changes){
-        if('shouldTrace' in changes && changes['shouldTrace'].newValue){
+        if('shouldRecord' in changes && changes['shouldRecord'].newValue){
             _public.init()
         
         }

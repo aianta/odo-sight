@@ -22,11 +22,8 @@ browser.webNavigation.onCommitted.addListener(onNavigationEvent)
 
 function onNavigationEvent(details){
 
-    console.log('Navigation Event!')
+    //console.log('Navigation Event!')
     //console.log(details)
-
-    
-
 }
 
 

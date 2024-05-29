@@ -24,14 +24,20 @@ domeffectsScript.onload = function(){this.remove();};
 logUIScript.onload = function(){
     //Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
     Promise.all([
+        stateManager.shouldRecord(),
         stateManager.shouldTrace(),
         stateManager.sessionReady()
     ]).then((values)=>{
-        const shouldTrace = values[0]
-        const sessionReady = values[1]
+        const shouldRecord = values[0]
+        const shouldTrace = values[1]
+        const sessionReady = values[2]
 
         if(shouldTrace && sessionReady){
             startLogUI2()
+        }
+
+        if(shouldRecord && sessionReady){
+            startLogUI3()
         }
     })
     
@@ -51,11 +57,17 @@ handlerMagicScript.onload = function(){this.remove();};
 
 function checkState(){
     Promise.all([
+        stateManager.shouldRecord(),
         stateManager.shouldTrace(),
         stateManager.sessionReady()
     ]).then((values)=>{
-        const shouldTrace = values[0]
-        const sessionReady = values[1]
+        const shouldRecord = values[0]
+        const shouldTrace = values[1]
+        const sessionReady = values[2]
+
+        if(shouldRecord && sessionReady){
+            startLogUI3()
+        }
 
         if(shouldTrace && sessionReady){
             startLogUI2()
@@ -65,11 +77,6 @@ function checkState(){
 
 function observeStateChange(changes){
 
-    //If the new 'shouldRecord' value is true, start the LogUI client. 
-    //This is primarily used by the bot mode via bot.js, to start the client without the need to have a session id ready.
-    if('shouldRecord' in changes && changes['shouldRecord'].newValue){
-        startLogUI3()
-    }
 
     //If the new 'shouldRecord' value is false, stop the LogUI client
     //This is primarily used by menu-ui.js to stop passive recording or transmitting. 
@@ -106,7 +113,12 @@ browser.storage.local.onChanged.addListener(observeStateChange)
  * From
  * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts#communicating_with_the_web_page
  */
-
+/**
+ * Handle the two kinds of messages main.js gets from logui.bundle.js.
+ * 
+ * 1) GET_SESSION_INFO -> here main.js needs to fetch the session info from the extensions state and pass it back to logui.bundle.js
+ * 2) LOGUI_EVENT -> this is just a LogUI event that has been captured by the client, it must be relayed to background.js 
+ */
 window.addEventListener("message", (event)=>{
     if(event.source === window &&
        event?.data?.origin === "logui.bundle.js"){

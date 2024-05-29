@@ -58,7 +58,7 @@ var stateManager = (function(){
             username: undefined, //LogUI Server username
             password: undefined, //LogUI Server password
             localContext: undefined, //Storage space for the LocalDispatcher
-            boundDispatcher: undefined //The dispatcher to use when processing LogUI events. Valid values are: 'local', 'logui', 'realtime'
+            boundDispatcher: 'local' //The dispatcher to use when processing LogUI events. Valid values are: 'local', 'logui', 'realtime'
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
