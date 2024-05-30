@@ -31,6 +31,7 @@
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
             "/scripts/localDispatcher.js",
+            "/scripts/realtimeDispatcher.js",
             "/scripts/background.js"
             ]
     },

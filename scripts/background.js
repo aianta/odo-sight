@@ -11,6 +11,8 @@
 browser.runtime.onStartup.addListener(stateManager.init)
 browser.runtime.onInstalled.addListener(stateManager.init)
 
+RealtimeDispatcher.init()
+
 /**
  * Web Navigation Trasition Interception
  * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onCommitted
