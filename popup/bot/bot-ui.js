@@ -12,6 +12,11 @@ $('#guide-btn').button({
     label: 'GO'
 })
 
+$('#cancel-btn').button({
+    label: 'Stop Guidance',
+    class: 'hidden'
+})
+
 function showError(msg){
     $('#error-container').removeClass('hidden').addClass('visible')
     $('#error-msg').text(msg)

@@ -35,32 +35,6 @@ var RealtimeDispatcher = (function() {
 
     _public.dispatcherType = 'websocket';
 
-    _public.testConnection = function(){
-
-        return new Promise((resolve, reject)=>{
-            try{
-                const testSocket = new WebSocket("wss://localhost:7080");
-
-                testSocket.addEventListener('open', async function(event){
-                    console.log('websocket connection opened successfully')
-                    resolve()
-                    testSocket.close()
-                })
-                
-                testSocket.addEventListener('error', async function(event){
-                    console.log('websocket error has occurred')
-                    reject(event)
-                    testSocket.close()
-                })
-
-            }catch(err){
-                return reject(err)
-            }
-
-            
-        })
-
-    }
 
     _public.sendCancelRequest = function(pathsId){
 
