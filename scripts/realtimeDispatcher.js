@@ -35,6 +35,56 @@ var RealtimeDispatcher = (function() {
 
     _public.dispatcherType = 'websocket';
 
+    _public.testConnection = function(){
+
+        return new Promise((resolve, reject)=>{
+            try{
+                const testSocket = new WebSocket("wss://localhost:7080");
+
+                testSocket.addEventListener('open', async function(event){
+                    console.log('websocket connection opened successfully')
+                    resolve()
+                    testSocket.close()
+                })
+                
+                testSocket.addEventListener('error', async function(event){
+                    console.log('websocket error has occurred')
+                    reject(event)
+                    testSocket.close()
+                })
+
+            }catch(err){
+                return reject(err)
+            }
+
+            
+        })
+
+    }
+
+    _public.sendCancelRequest = function(pathsId){
+
+        const payload = {
+            type: "CANCEL_REQUEST",
+            pathsId: pathsId
+        }
+
+        _websocket.send(JSON.stringify(payload))
+
+    }
+
+    _public.sendPathsRequest = function(targetAPINode, localContext){
+
+        const payload = {
+            type: "PATHS_REQUEST",
+            targetAPINode: targetAPINode,
+            localContext: localContext
+        }
+
+        _websocket.send(JSON.stringify(payload));
+
+    }
+
 
     _public.init = function() {
 
@@ -223,6 +273,16 @@ var RealtimeDispatcher = (function() {
             let messageObject = JSON.parse(receivedMessage.data);
 
             switch (messageObject.type) {
+                case 'NAV_OPTIONS':
+
+                    break;
+                case 'ABORT':
+
+                    break;
+                case 'COMPLETE':
+
+                    break;
+
                 case 'handshakeSuccess':
                     //Helpers.console(`The handshake was successful. Hurray! The server is listening.`, 'Dispatcher', false);
                     console.log(`[LogUI Websocket Dispatcher] The handshake was successful. Hurray! The server is listening.`)

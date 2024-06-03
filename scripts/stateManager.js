@@ -58,10 +58,18 @@ var stateManager = (function(){
             username: undefined, //LogUI Server username
             password: undefined, //LogUI Server password
             localContext: undefined, //Storage space for the LocalDispatcher
-            boundDispatcher: 'local' //The dispatcher to use when processing LogUI events. Valid values are: 'local', 'logui', 'realtime'
+            boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local', 'logui', 'realtime'
+            guidanceHost: 'localhost:7080' //The host for the guidance service to use with Bot mode.
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
+    }
+
+    _public.guidanceHost = function(data){
+        if(data === undefined){
+            return _public.get('guidanceHost')
+        }
+        return _public.set('guidanceHost', data)
     }
 
 

@@ -17,5 +17,15 @@ Promise.all([
 
 })
 
+//Self-signed ssl check
+services.guidanceConnectionCheck().then(
+    _=>{console.log('guidanceConnection check done')},
+    err=>handleSelfSignedCertificateError(err, services.guidanceConnectionCheck)
+)
+
+$('#guide-btn').click(_=>{
+    console.log("guide button clicked!")
+})
+
 
 

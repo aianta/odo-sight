@@ -10,3 +10,17 @@
     max-width: 180px;
     padding: 5px;
 }
+
+.error-container{
+    border: solid rgb(245, 80, 80) 2px;
+    background-color: rgb(245, 185, 185);
+    padding: 5px;
+}
+
+.hidden{
+    display: none;
+}
+
+.visible{
+    display: block;
+}

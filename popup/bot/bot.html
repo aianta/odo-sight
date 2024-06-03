@@ -6,18 +6,32 @@
         <link rel="stylesheet" href="/libs/jquery-ui.min.css"/>
     </head>
     <body style="min-width: 400px;">
+        <div id="self-signed-ssl-msg-box" class="hidden error-container">
+            <p>If the Odo Bot server is running, it may be using a self signed certificate that is preventing the extension from connecting! 
+              <br><br>
+              Click the link below to open a new tab and accept the risks of connecting to a server with a self signed certificate
+              to continue. After you have accepted the certificate you may close the tab.
+            </p>
+            <a id="self-signed-link"></a>
+            <p>The extension will retry the connection in 20 seconds and only persist if the issue persists.</p>
+        </div>
+        <div id="main-frame">
+            <div id="header">
+                <span id="back-to-menu-btn"></span>
+                <h1>Odo Bot</h1>
+            </div>
+            <div id="error-container" class="hidden">
+                <span id="error-msg"></span>
+            </div>
+            <div id="content">
+                <select>
+                    <option>Create Quiz</option>
+                    <option>Create Quiz Question</option>
+                </select>
+                <span id="guide-btn"></span>
+            </div>
+        </div>
 
-        <div id="header">
-            <span id="back-to-menu-btn"></span>
-            <h1>Odo Bot</h1>
-        </div>
-        <div id="content">
-            <select>
-                <option>Create Quiz</option>
-                <option>Create Quiz Question</option>
-            </select>
-            <span id="guide-btn"></span>
-        </div>
 
         <script src="/scripts/globalThis.js"></script>
         <script scr="/libs/raf-ff-fix.js"></script>
@@ -28,6 +42,7 @@
         <script src="/scripts/constants.js"></script>
         <script src="/scripts/stateManager.js"></script>
         <script src="/scripts/services.js"></script>
+        <script src="/scripts/realtimeDispatcher.js"></script>
         <script src="./bot-ui.js"></script>
         <script src="/scripts/bot.js"></script>
 

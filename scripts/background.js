@@ -11,7 +11,6 @@
 browser.runtime.onStartup.addListener(stateManager.init)
 browser.runtime.onInstalled.addListener(stateManager.init)
 
-RealtimeDispatcher.init()
 
 /**
  * Web Navigation Trasition Interception

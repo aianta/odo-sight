@@ -6,20 +6,32 @@
         <link rel="stylesheet" href="/libs/jquery-ui.min.css"/>
     </head>
     <body style="min-width: 400px;">
-        <div id="header">
-            <h1>Welcome!</h1>
-            <p>Please select which mode you would like the extension to run in.</p>
+        <div id="self-signed-ssl-msg-box" class="hidden error-container">
+            <p>If the odobot server is running, it may be using a self signed certificate that is preventing Odo Bot from connecting! 
+              <br><br>
+              Click the link below to open a new tab and accept the risks of connecting to a server with a self signed certificate
+              to continue. After you have accepted the certificate you may close the tab.
+            </p>
+            <a id="self-signed-link"></a>
+            <p>The extension will retry the connection in 20 seconds and only persist if the issue persists.</p>
         </div>
-        <div class="menu-container">
-            <div class="mode-container">
-                <span id="bot-mode-btn" class="mode-btn"></span>
-                <p>Select bot mode if you would like to ask Odo Bot for help navigating an app.</p>    
+        <div id="main-frame">
+            <div id="header">
+                <h1>Welcome!</h1>
+                <p>Please select which mode you would like the extension to run in.</p>
             </div>
-            <div class="mode-container">
-                <span id="sight-mode-btn" class="mode-btn"></span>
-                <p>Select sight mode if you would like to record traces for an application model that can later be used by Odo Bot to help users navigate your app.</p>    
+            <div class="menu-container">
+                <div class="mode-container">
+                    <span id="bot-mode-btn" class="mode-btn"></span>
+                    <p>Select bot mode if you would like to ask Odo Bot for help navigating an app.</p>    
+                </div>
+                <div class="mode-container">
+                    <span id="sight-mode-btn" class="mode-btn"></span>
+                    <p>Select sight mode if you would like to record traces for an application model that can later be used by Odo Bot to help users navigate your app.</p>    
+                </div>
             </div>
         </div>
+        
 
         <script src="/scripts/globalThis.js"></script>
         <script scr="/libs/raf-ff-fix.js"></script>
@@ -30,6 +42,7 @@
         <script src="/scripts/constants.js"></script>
         <script src="/scripts/stateManager.js"></script>
         <script src="/scripts/services.js"></script>
+        <script src="/scripts/realtimeDispatcher.js"></script>
         <script src="./menu-ui.js"></script>
 
     </body>

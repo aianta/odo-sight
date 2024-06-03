@@ -10,6 +10,25 @@
 var services = (function(){
     var _public = {}
 
+    /**
+     * Make a call to the guidance service to ensure successfuly communication over HTTPS. 
+     * If an error occurs then the user likely has to manually accept a self-signed certificate from the server.
+     */
+    _public.guidanceConnectionCheck = function(){
+        console.log('checking guidance service connection')
+        return stateManager.guidanceHost().then(function(guidanceHost){
+            const GUIDANCE_HOST_LINK = `https://${guidanceHost}`
+            return axios.get(GUIDANCE_HOST_LINK)
+                .then(function(response){
+                    return Promise.resolve()
+                })
+                .catch(function(error){
+                    error.hostLink = GUIDANCE_HOST_LINK //Attach the guidance host link to the error for ease of handling
+                    return Promise.reject(error)
+                })
+        })        
+    }
+
     _public.scrapeMongo = function (flight, index){
         return stateManager.odoSightSupportHost().then(function(odoSightSupportHost){
             return axios.post(`http://${odoSightSupportHost}${_ODO_BOT_SIGHT_SCRAPE_MONGO_PATH}`, {
