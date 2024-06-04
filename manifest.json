@@ -49,6 +49,7 @@
         {
           "resources": [ 
             "/scripts/handlerMagic.js",
+            "/scripts/guidance.js",
             "/libs/logui.bundle.js",
             "/libs/dom-effects.js"
         ],

@@ -21,9 +21,8 @@
 var LocalDispatcher = (function() {
     var _public = {};
     var _isActive = false;
-    var _cacheSize = 10000 // The maximum number of stored events that can be in the cache before flushing.
+    var _cacheSize = 2500 // The maximum number of stored events that can be in the cache before flushing.
     var _libraryLoadTimestamp = null;  // The time at which the dispatcher loads -- for measuring the beginning of a session more accurately.
-    var _maximumCacheSize = 1000;  // When no connection is present, this is the cache size we shut down LogUI at.
     var _sessionID = null;
     var _sessionStartTimestamp = null;
     var _libraryStartTimestamp = null;
@@ -60,7 +59,7 @@ var LocalDispatcher = (function() {
         _cache = null;
         _isActive = false;
         _sessionID = null;
-        await stateManager.clearSessionId()
+        
         await stateManager.localContext([])
     };
 
@@ -76,7 +75,7 @@ var LocalDispatcher = (function() {
 
 
             if (_cache.length >= _cacheSize) {
-                _flushCache();
+                _cache.shift()
             }
 
             return;
@@ -93,24 +92,6 @@ var LocalDispatcher = (function() {
             type: messageType,
             payload: payload,
         };
-    };
-
-    var _flushCache = function() {
-        
-        if (_cache.length >= _maximumCacheSize) {
-            console.warn(`[LogUI Websocket Dispatcher] The cache has grown too large, with no connection to clear it. LogUI will now stop; any cached events will be lost.`)
-            
-            //TODO: send shutdown request to odosight dispatcher. 
-            stateManager.eventCacheOverflow(true)
-            return;
-        }
-
-        stateManager.add('localContext', _cache)
-        
-
-        console.log(`[LogUI Websocket Dispatcher] Cache flushed.`)
-
-        _cache = [];
     };
     
 

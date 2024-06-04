@@ -248,7 +248,7 @@ var stateManager = (function(){
      * @returns true, if key exists in the stored state.
      */
     _public.exists = function (key){
-        return browser.storage.local.get(key).then((data)=>key in data)
+        return browser.storage.local.get(key).then((data)=>key in data, false)
     }
 
     /**

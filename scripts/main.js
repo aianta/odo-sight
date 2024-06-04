@@ -14,12 +14,16 @@
 var handlerMagicScript = document.createElement('script')
 var logUIScript = document.createElement('script')
 var domeffectsScript = document.createElement('script')
+var guidanceScript = document.createElement('script')
 
 logUIScript.src = browser.runtime.getURL('/libs/logui.bundle.js')
 handlerMagicScript.src = browser.runtime.getURL('/scripts/handlerMagic.js')
 domeffectsScript.src = browser.runtime.getURL('/libs/dom-effects.js')
+guidanceScript.src = browser.runtime.getURL('/scripts/guidance.js')
 
 domeffectsScript.onload = function(){this.remove();};
+handlerMagicScript.onload = function(){this.remove();};
+guidanceScript.onload = function(){this.remove();};
 
 logUIScript.onload = function(){
     //Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
@@ -45,8 +49,8 @@ logUIScript.onload = function(){
     this.remove();
 };
 
-handlerMagicScript.onload = function(){this.remove();};
 
+(document.head || document.documentElement).prepend(guidanceScript);
 (document.head || document.documentElement).prepend(handlerMagicScript);
 (document.head || document.documentElement).prepend(logUIScript);
 (document.head || document.documentElement).prepend(domeffectsScript);
@@ -105,6 +109,10 @@ function observeStateChange(changes){
     if('eventCacheOverflow' in changes && changes['eventCacheOverflow'] === true){
         sendCacheOverflowError()
     }
+
+    if('activePathsRequestId' in changes){
+        gatherAndSendGuidanceSocketConfig()
+    }
 }
 
 browser.storage.local.onChanged.addListener(observeStateChange)
@@ -140,6 +148,15 @@ window.addEventListener("message", (event)=>{
             }
 
         }
+    if(event.source == window && 
+        event?.data?.origin === "guidance.js"){
+            console.log('got config request from guidance.js')
+            switch(event.data.type){
+                case "GET_GUIDANCE_SOCKET_CONFIG":
+                    gatherAndSendGuidanceSocketConfig()
+                    break;
+            }
+        }
 })
 
 function sendCacheOverflowError(){
@@ -149,8 +166,29 @@ function sendCacheOverflowError(){
     })
 }
 
+function gatherAndSendGuidanceSocketConfig(){
+    Promise.all([
+        stateManager.guidanceHost(),
+        stateManager.activePathsRequestId()
+    ]).then(values=>{
+        const guidanceHost = values[0]
+        const id = values[1]
+        sendGuidanceSocketConfig(id, guidanceHost)
+    },
+    err=>console.log('Error while gather guidance socket config: ',err)
+)
+}
+
+function sendGuidanceSocketConfig(id, guidanceHost){
+    window.postMessage({
+        origin: 'main.js',
+        type: "GUIDANCE_SOCKET_CONFIG",
+        id: id,
+        guidanceHost: guidanceHost
+    })
+}
+
 function sendSessionInfo(data){
-    console.log(`Sending session info!!`)
     window.postMessage({
         origin: 'main.js',
         type: 'SESSION_INFO',
