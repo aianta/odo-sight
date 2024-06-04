@@ -57,7 +57,6 @@ var stateManager = (function(){
             pageOrigin: undefined, 
             username: undefined, //LogUI Server username
             password: undefined, //LogUI Server password
-            localContext: undefined, //Storage space for the LocalDispatcher
             boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local', 'logui', 'realtime'
             guidanceHost: 'localhost:7080', //The host for the guidance service to use with Bot mode.
             activePathsRequestId: undefined 
@@ -88,11 +87,8 @@ var stateManager = (function(){
         return _public.set('boundDispatcher', data)
     }
 
-    _public.localContext = function(data){
-        if(data === undefined){
-            return _public.get('localContext')
-        }
-        return _public.set('localContext', data)
+    _public.clearActivePathsRequestId = function(){
+        return _public.set('activePathsRequestId', undefined)
     }
 
     _public.clearSessionId = function(){

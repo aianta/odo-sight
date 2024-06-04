@@ -7,15 +7,41 @@ $('#back-to-menu-btn').button({
     })
     window.location.href="/popup/menu/menu.html"
 })
-    
-$('#guide-btn').button({
-    label: 'GO'
-})
 
-$('#cancel-btn').button({
-    label: 'Stop Guidance',
-    class: 'hidden'
-})
+stateManager.exists('activePathsRequestId').then(
+    exists=>{
+        if(exists){
+            $('#guide-btn').button({
+                label: 'GO'
+            }).hide()
+            $('#cancel-btn').button({
+                label: 'Stop Guidance',
+            }).show()
+        }else{
+            $('#guide-btn').button({
+                label: 'GO'
+            }).show()
+            $('#cancel-btn').button({
+                label: 'Stop Guidance',
+            }).hide()
+        }
+        
+    }
+)
+
+browser.storage.local.onChanged.addListener(observeStateChange)
+
+function observeStateChange(changes){
+    if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
+        $('#guide-btn').hide()
+        $('#cancel-btn').show()
+    }
+    
+    if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue){
+        $('#guide-btn').show()
+        $('#cancel-btn').hide()
+    }
+}
 
 function showError(msg){
     $('#error-container').removeClass('hidden').addClass('visible')

@@ -30,6 +30,10 @@ const guidanceSocket = {
 
     },
     shutdown: function(){
+        guidanceSocket.socket.removeEventListener('close', guidanceSocket.onClose)
+        guidanceSocket.socket.removeEventListener('open', guidanceSocket.onOpen)
+        guidanceSocket.socket.removeEventListener('message', guidanceSocket.onMessage)
+        guidanceSocket.socket.removeEventListener('error', guidanceSocket.onError)
         this.socket.close()
     }
 }
@@ -51,14 +55,20 @@ window.addEventListener("message", (event)=>{
                 guidanceSocket.pathsRequestId = event.data.id
                 guidanceSocket.remoteHost = event.data.guidanceHost
 
-                const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}`)
-                socket.addEventListener('open', guidanceSocket.onOpen )
-                socket.addEventListener('error', guidanceSocket.onError)
-                socket.addEventListener('message', guidanceSocket.onMessage )
-                socket.addEventListener('close', guidanceSocket.onClose )
-
-                guidanceSocket.socket = socket
-
+                if(guidanceSocket.socket === undefined){
+                    const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}`)
+                    socket.addEventListener('open', guidanceSocket.onOpen )
+                    socket.addEventListener('error', guidanceSocket.onError)
+                    socket.addEventListener('message', guidanceSocket.onMessage )
+                    socket.addEventListener('close', guidanceSocket.onClose )
+    
+                    guidanceSocket.socket = socket
+                }else{
+                    guidanceSocket.notifyReconnected()
+                }
+                break;
+            case "GUIDANCE_SOCKET_STOP":
+                guidanceSocket.shutdown()
                 break;
         }
     }

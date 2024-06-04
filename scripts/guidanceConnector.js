@@ -18,7 +18,7 @@
 */
 
 
-var LocalDispatcher = (function() {
+var GuidanceConnector = (function() {
     var _public = {};
     var _isActive = false;
     var _cacheSize = 2500 // The maximum number of stored events that can be in the cache before flushing.
@@ -27,32 +27,81 @@ var LocalDispatcher = (function() {
     var _sessionStartTimestamp = null;
     var _libraryStartTimestamp = null;
     var _cache = null;
+    var _websocket = null;
+    var _guidanceHost = null;
 
 
-    _public.dispatcherType = 'local';
+    _public.dispatcherType = 'guidance';
 
+    var _initWebsocket = function(){
+        console.log('Initializing eventSocket!')
+        stateManager.guidanceHost().then(host=>{
+            _guidanceHost = host
+            _websocket = new WebSocket(`wss://${_guidanceHost}`)
+            _websocket.addEventListener('open', eventSocket.onOpen)
+            _websocket.addEventListener('close', eventSocket.onClose)
+            _websocket.addEventListener('message', eventSocket.onMessage)
+            _websocket.addEventListener('error', eventSocket.onError)
+
+        })
+        
+    }
+
+    var eventSocket = {
+        makePayload: function(type){
+            return {
+                source: 'EventSocket',
+                type: type
+            }
+        },
+        notifyReconnected: async function(){
+            const payload = this.makePayload('NOTIFY_RECONNECT')
+            payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+            _websocket.send(JSON.stringify(payload))
+        },
+        onOpen: async function(event){
+            console.log(`[guidanceConnector.js] EventSocket connection established`)
+            eventSocket.notifyReconnected()
+        },
+        onClose: async function(event){},
+        onMessage: async function(msg){},
+        onError: async function(error){},
+        cleanup: function(){
+            _websocket.removeEventListener('open', eventSocket.onOpen)
+            _websocket.removeEventListener('close', eventSocket.onClose)
+            _websocket.removeEventListener('message', eventSocket.onMessage)
+            _websocket.removeEventListener('error', eventSocket.onError)
+            _websocket.close()
+            _websocket === null
+        }
+    }
+
+    _public.startEventSocket = function(){
+        _initWebsocket()
+    }
+
+    _public.stopEventSocket = function(){
+        eventSocket.cleanup()
+    }
 
     _public.init = function() {
         _cache = [];
         _isActive = true;
-        //Reset the local contex
-        stateManager.localContext([]).then(_=>{
-            const sessionData = {
-                sessionID: crypto.randomUUID(),
-                fresh: true,
-                sessionStartTimestamp: Date.now(),
-                libraryStartTimestamp: Date.now()
-            }
-            
 
-            _sessionID = sessionData.sessionID;
-
-            return stateManager.sessionId(sessionData.sessionID)
-            .then(_=>stateManager.sessionData(sessionData)
-            .then(_=>stateManager.sessionReady(true)))
-        })
+        const sessionData = {
+            sessionID: crypto.randomUUID(),
+            fresh: true,
+            sessionStartTimestamp: Date.now(),
+            libraryStartTimestamp: Date.now()
+        }
         
-        return true;
+
+        _sessionID = sessionData.sessionID;
+
+        return stateManager.sessionId(sessionData.sessionID)
+        .then(_=>stateManager.sessionData(sessionData)
+        .then(_=>stateManager.sessionReady(true)))
+        
     };
 
     _public.stop = async function() {
@@ -60,7 +109,6 @@ var LocalDispatcher = (function() {
         _isActive = false;
         _sessionID = null;
         
-        await stateManager.localContext([])
     };
 
     _public.isActive = function() {
@@ -133,10 +181,26 @@ var LocalDispatcher = (function() {
             _public.init()
         
         }
+        if ('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue && _websocket === null){
+            _initWebsocket()
+        }
+
+        if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue && _websocket !== null){
+            eventSocket.notifyReconnected()
+        }
+
+        if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue && _websocket !== null){
+            eventSocket.cleanup()
+        }
     }
 
     return _public;
 })();
 
 
-browser.storage.local.onChanged.addListener(LocalDispatcher.handleStateChange)
+browser.storage.local.onChanged.addListener(GuidanceConnector.handleStateChange)
+stateManager.exists('activePathsRequestId').then(exists=>{
+    if(exists){
+        GuidanceConnector.startEventSocket()
+    }
+});

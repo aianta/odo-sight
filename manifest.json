@@ -30,8 +30,7 @@
             "/libs/axios.min.js",
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
-            "/scripts/localDispatcher.js",
-            "/scripts/realtimeDispatcher.js",
+            "/scripts/guidanceConnector.js",
             "/scripts/background.js"
             ]
     },

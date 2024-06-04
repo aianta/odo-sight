@@ -110,8 +110,12 @@ function observeStateChange(changes){
         sendCacheOverflowError()
     }
 
-    if('activePathsRequestId' in changes){
+    if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
         gatherAndSendGuidanceSocketConfig()
+    }
+
+    if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue){
+        stopGuidanceSocket()
     }
 }
 
@@ -177,6 +181,13 @@ function gatherAndSendGuidanceSocketConfig(){
     },
     err=>console.log('Error while gather guidance socket config: ',err)
 )
+}
+
+function stopGuidanceSocket(){
+    window.postMessage({
+        origin: 'main.js',
+        type: 'GUIDANCE_SOCKET_STOP'
+    })
 }
 
 function sendGuidanceSocketConfig(id, guidanceHost){

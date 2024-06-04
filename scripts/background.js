@@ -40,7 +40,7 @@ function handleMessage(message){
 
                 switch(_dispatcher){
                     case "local":
-                        LocalDispatcher.sendObject(message.payload)
+                        GuidanceConnector.sendObject(message.payload)
                         break;
                     case "logui":
                         LogUIDispatcher.sendObject(message.payload)
@@ -55,7 +55,7 @@ function handleMessage(message){
                 if(message.payload.eventType === 'statusEvent' && message.payload.eventDetails.type === 'stopped'){
                     switch(_dispatcher){
                         case "local":
-                            LocalDispatcher.stop()
+                            //LocalDispatcher.stop()
                             break;
                         case "logui":
                             LogUIDispatcher.stop()

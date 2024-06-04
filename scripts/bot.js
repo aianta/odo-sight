@@ -1,6 +1,12 @@
 
 //Close the controls socket on unload
-browser.runtime.onSuspend.addListener(_=>{controlSocket.shutdown()})
+browser.runtime.onSuspend.addListener(_=>{
+    controlSocket.socket.removeEventListener('open', controlSocket.onOpen)
+    controlSocket.socket.removeEventListener('close', controlSocket.onClose)
+    controlSocket.socket.removeEventListener('message', controlSocket.onMessage)
+    controlSocket.socket.removeEventListener('error', controlSocket.onError)
+    controlSocket.shutdown()
+})
 
 
 const controlSocket = {
@@ -13,13 +19,18 @@ const controlSocket = {
     },
     makePathsRequest: async function(){
         const pathsRequestId = await stateManager.activePathsRequestId()
-        const localContext = await stateManager.localContext()
-        
+        const targetNode = $('#target-node-select').find(":selected").val()
         const payload = this.makePayload('PATHS_REQUEST')
-        
+    
         payload['pathsRequestId'] = pathsRequestId
-        payload['localContext'] = localContext
+        payload['targetNode'] = targetNode
 
+        this.socket.send(JSON.stringify(payload))
+    },
+    makeStopRequest: async function(){
+        const pathsRequestId = await stateManager.activePathsRequestId()
+        const payload = this.makePayload('STOP_GUIDANCE_REQUEST')
+        payload['pathsRequestId'] = pathsRequestId
         this.socket.send(JSON.stringify(payload))
     },
     notifyReconnected: async function(){
@@ -102,10 +113,14 @@ $('#guide-btn').click(_=>{
             .then(_=>controlSocket.makePathsRequest())
         }
 
-        $('#guide-btn').removeClass('visible').addClass('hidden')
-        $('#cancel-btn').removeClass('hidden').addClass('visible')
-
     })
 
+})
+
+
+$('#cancel-btn').click(_=>{
+    console.log('Cancel Guidance button clicked!')
+    controlSocket.makeStopRequest()
+    stateManager.clearActivePathsRequestId()
 })
 
