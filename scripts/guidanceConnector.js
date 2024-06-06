@@ -26,26 +26,13 @@ var GuidanceConnector = (function() {
     var _sessionID = null;
     var _sessionStartTimestamp = null;
     var _libraryStartTimestamp = null;
-    var _cache = null;
+    var _cache = [];
     var _websocket = null;
     var _guidanceHost = null;
+    var _transmit = false;
 
 
     _public.dispatcherType = 'guidance';
-
-    var _initWebsocket = function(){
-        console.log('Initializing eventSocket!')
-        stateManager.guidanceHost().then(host=>{
-            _guidanceHost = host
-            _websocket = new WebSocket(`wss://${_guidanceHost}`)
-            _websocket.addEventListener('open', eventSocket.onOpen)
-            _websocket.addEventListener('close', eventSocket.onClose)
-            _websocket.addEventListener('message', eventSocket.onMessage)
-            _websocket.addEventListener('error', eventSocket.onError)
-
-        })
-        
-    }
 
     var eventSocket = {
         makePayload: function(type){
@@ -59,22 +46,77 @@ var GuidanceConnector = (function() {
             payload['pathsRequestId'] = await stateManager.activePathsRequestId()
             _websocket.send(JSON.stringify(payload))
         },
+        sendEvent: async function(event){
+            const payload = this.makePayload('EVENT')
+            payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+            payload['event'] = event
+            _websocket.send(JSON.stringify(payload))
+        },
         onOpen: async function(event){
             console.log(`[guidanceConnector.js] EventSocket connection established`)
             eventSocket.notifyReconnected()
         },
         onClose: async function(event){},
-        onMessage: async function(msg){},
+        onMessage: async function(msg){
+            console.log('[guidanceConnector.js] EventSocket got: ', msg)
+            console.log(msg.data)
+            const data = JSON.parse(msg.data)
+            let payload = null
+            switch(data.type){
+                case "GET_LOCAL_CONTEXT":
+                    payload = eventSocket.makePayload('LOCAL_CONTEXT')
+                    payload['localContext'] = _cache
+                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+
+                    _websocket.send(JSON.stringify(payload))
+                    _cache = [] //Clear the cache/localContext
+                    break
+                case "START_TRANSMISSION":
+                    _transmit = true
+
+                    payload = eventSocket.makePayload("TRANSMISSION_STARTED")
+                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+
+                    _websocket.send(JSON.stringify(payload))
+                    break
+                case "STOP_TRANSMISSION":
+                    _transmit = false
+
+                    payload = eventSocket.makePayload("TRANSMISSION_STOPPED")
+                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+
+                    _websocket.send(JSON.stringify(payload))
+                    break
+            }
+
+        },
         onError: async function(error){},
         cleanup: function(){
+            console.log('Event socket cleaning up')
             _websocket.removeEventListener('open', eventSocket.onOpen)
             _websocket.removeEventListener('close', eventSocket.onClose)
             _websocket.removeEventListener('message', eventSocket.onMessage)
             _websocket.removeEventListener('error', eventSocket.onError)
             _websocket.close()
-            _websocket === null
+            //_websocket === null
         }
     }
+
+    var _initWebsocket = function(){
+        console.log('Initializing eventSocket!')
+        stateManager.guidanceHost().then(host=>{
+            _guidanceHost = host
+            _websocket = new WebSocket(`wss://${_guidanceHost}`)
+            _websocket.addEventListener('open', eventSocket.onOpen)
+            _websocket.addEventListener('close', eventSocket.onClose)
+            _websocket.addEventListener('message', eventSocket.onMessage)
+            _websocket.addEventListener('error', eventSocket.onError)
+            //eventSocket.notifyReconnected()
+        })
+        
+    }
+
+    
 
     _public.startEventSocket = function(){
         _initWebsocket()
@@ -105,7 +147,7 @@ var GuidanceConnector = (function() {
     };
 
     _public.stop = async function() {
-        _cache = null;
+        _cache = [];
         _isActive = false;
         _sessionID = null;
         
@@ -119,11 +161,16 @@ var GuidanceConnector = (function() {
         console.log('got send object')
 
         if(objectToSend.sessionID === _sessionID){
-            _cache.push(objectToSend);
+
+            if(_transmit){
+                eventSocket.sendEvent(objectToSend)
+            }else{
+                _cache.push(objectToSend);
 
 
-            if (_cache.length >= _cacheSize) {
-                _cache.shift()
+                if (_cache.length >= _cacheSize) {
+                    _cache.shift()
+                }
             }
 
             return;
@@ -177,16 +224,18 @@ var GuidanceConnector = (function() {
     }
 
     _public.handleStateChange = function(changes){
+        if('activePathsRequestId' in changes){
+            console.log(changes)
+            console.log("_websocket is: ", _websocket)
+        }
+
         if('shouldRecord' in changes && changes['shouldRecord'].newValue){
             _public.init()
         
         }
-        if ('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue && _websocket === null){
-            _initWebsocket()
-        }
 
-        if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue && _websocket !== null){
-            eventSocket.notifyReconnected()
+        if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
+            _initWebsocket()
         }
 
         if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue && _websocket !== null){

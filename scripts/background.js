@@ -45,9 +45,6 @@ function handleMessage(message){
                     case "logui":
                         LogUIDispatcher.sendObject(message.payload)
                         break;
-                    case "realtime":
-                        //TODO
-                        break;
                     default:
                         console.log("Unrecognized boundDispatcher ", _dispatcher)
                 }
@@ -59,9 +56,6 @@ function handleMessage(message){
                             break;
                         case "logui":
                             LogUIDispatcher.stop()
-                            break;
-                        case "realtime":
-                            //TODO
                             break;
                         default:
                             console.log("Unrecognized boundDispatcher ", _dispatcher)

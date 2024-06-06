@@ -20,13 +20,28 @@ const guidanceSocket = {
         console.log(`[guidance.js] Guidance socket connection established`)
         guidanceSocket.notifyReconnected()
     },
-    onError: async function(){
+    onError: async function(err){
 
     },
-    onMessage: async function(){
+    onMessage: async function(msg){
+        console.log('[guidance.js] GuidanceSocket got: ', msg)
+        console.log(msg.data)
+        const data = JSON.parse(msg.data)
 
+        switch(data.type){
+            case "SHOW_NAVIGATION_OPTIONS":
+
+                const xpath = data.navigationOptions[0].xpath
+                highlightElement(xpath)
+
+                const response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
+                response['pathsRequestId'] = guidanceSocket.pathsRequestId
+                guidanceSocket.socket.send(JSON.stringify(response))
+
+                break;
+        }
     },
-    onClose: async function(){
+    onClose: async function(event){
 
     },
     shutdown: function(){
@@ -92,9 +107,12 @@ function getElementByXpath(path) {
 
 const exampleXpath = '//html/body/div[3]/div[2]/div/div/div[1]/div/div/div/div/div/div[2]/form[1]/div[3]/div[2]/button'
 
-setTimeout(()=>{
-    console.log('highlighting example xpath')
-    getElementByXpath(exampleXpath).style.boxShadow = "0px 0px 5px 11px #E6EF3E"
-}, 2000)
+// setTimeout(()=>{
+//     console.log('highlighting example xpath')
+//     getElementByXpath(exampleXpath).style.boxShadow = "0px 0px 5px 11px #E6EF3E"
+// }, 2000)
 
 
+function highlightElement(xpath){
+    getElementByXpath(xpath).style.boxShadow = "0px 0px 5px 11px #E6EF3E"
+}

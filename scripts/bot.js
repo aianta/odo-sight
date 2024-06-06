@@ -1,13 +1,6 @@
 
 //Close the controls socket on unload
-browser.runtime.onSuspend.addListener(_=>{
-    controlSocket.socket.removeEventListener('open', controlSocket.onOpen)
-    controlSocket.socket.removeEventListener('close', controlSocket.onClose)
-    controlSocket.socket.removeEventListener('message', controlSocket.onMessage)
-    controlSocket.socket.removeEventListener('error', controlSocket.onError)
-    controlSocket.shutdown()
-})
-
+browser.runtime.onSuspend.addListener(_=>{controlSocket.shutdown()})
 
 const controlSocket = {
     socket: undefined, 
@@ -58,6 +51,10 @@ const controlSocket = {
 
     },
     shutdown: function(){
+        controlSocket.socket.removeEventListener('open', controlSocket.onOpen)
+        controlSocket.socket.removeEventListener('close', controlSocket.onClose)
+        controlSocket.socket.removeEventListener('message', controlSocket.onMessage)
+        controlSocket.socket.removeEventListener('error', controlSocket.onError)    
         this.socket.close()
     }
 }
@@ -110,7 +107,7 @@ $('#guide-btn').click(_=>{
         if(!pathsRequestExists){
             //No paths request is active, time to create one.
             stateManager.activePathsRequestId(crypto.randomUUID()) //Create a uuid for this paths request.
-            .then(_=>controlSocket.makePathsRequest())
+            .then(_=>setTimeout(()=>controlSocket.makePathsRequest(), 10000))
         }
 
     })

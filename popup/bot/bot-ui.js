@@ -1,3 +1,9 @@
+/**
+ * Back to menu button,
+ * sets the popup to the menu view, and then changes the window 
+ * location to the menu view.
+ */
+
 $('#back-to-menu-btn').button({
     icon: 'fa-solid fa-arrow-left',
     label: 'Back to Menu'
@@ -8,9 +14,19 @@ $('#back-to-menu-btn').button({
     window.location.href="/popup/menu/menu.html"
 })
 
+/**
+ * This runs once when the bot view is loaded.
+ * Decide what button to display based on whether or not 
+ * there is an active paths request. 
+ */
 stateManager.exists('activePathsRequestId').then(
     exists=>{
         if(exists){
+            /**
+             * If a paths request exits, hide the button
+             * that creates a paths request. And show the
+             * button that cancels an existing paths request.
+             */
             $('#guide-btn').button({
                 label: 'GO'
             }).hide()
@@ -18,6 +34,11 @@ stateManager.exists('activePathsRequestId').then(
                 label: 'Stop Guidance',
             }).show()
         }else{
+            /**
+             * Otherwise show the button that creates a paths
+             * request, and hide the button that cancels an
+             * existing paths request.
+             */
             $('#guide-btn').button({
                 label: 'GO'
             }).show()
@@ -29,6 +50,13 @@ stateManager.exists('activePathsRequestId').then(
     }
 )
 
+/**
+ * Bind a change listener to the extension state to update
+ * button visibility based on wheteher or not there is 
+ * an active paths request.
+ * This keeps the correct buttons showing after the bots view
+ * is loaded.
+ */
 browser.storage.local.onChanged.addListener(observeStateChange)
 
 function observeStateChange(changes){
