@@ -73,18 +73,22 @@ var GuidanceConnector = (function() {
                     break
                 case "START_TRANSMISSION":
                     _transmit = true
-
+                    await stateManager.shouldTransmit(true)
+                    
                     payload = eventSocket.makePayload("TRANSMISSION_STARTED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+                    
+
 
                     _websocket.send(JSON.stringify(payload))
                     break
                 case "STOP_TRANSMISSION":
                     _transmit = false
+                    await stateManager.shouldTransmit(false)
 
                     payload = eventSocket.makePayload("TRANSMISSION_STOPPED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
-
+                    
                     _websocket.send(JSON.stringify(payload))
                     break
             }

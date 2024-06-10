@@ -101,13 +101,15 @@ function logNetworkRequest(record){
 
     Promise.all([
         stateManager.shouldTrace(),
+        stateManager.shouldTransmit(),
         stateManager.targetHost()
     ]).then((values)=>{
 
         const shouldTrace = values[0]
-        const target_host = values[1]
+        const shouldTransmit = values[1]
+        const target_host = values[2]
 
-        if(shouldTrace){ //Only intercept network requests if the 'shouldTrace' flag is set.
+        if(shouldTrace || shouldTransmit){ //Only intercept network requests if the 'shouldTrace' or 'shouldTransmit' flag is set.
             var _fields = [
                 "timeStamp", //The sky will fall if this is not included.
                 "requestId",
@@ -197,9 +199,16 @@ browser.webRequest.onBeforeRequest.addListener(logNetworkRequest ,{
 
 
 function logRequestHeaders(record){
-    stateManager.shouldTrace().then((shouldTrace)=>{
 
-        if(shouldTrace){
+    Promise.all([
+        stateManager.shouldTransmit(),
+        stateManager.shouldTrace()
+    ]).then((values)=>{
+
+        const shouldTransmit = values[0]
+        const shouldTrace = values[1]
+
+        if(shouldTrace || shouldTransmit){
 
             const _headers = {}
 
@@ -234,8 +243,16 @@ browser.webRequest.onSendHeaders.addListener(logRequestHeaders, {
 
 
 function logResponseHeaders(record){
-    stateManager.shouldTrace().then((shouldTrace)=>{
-        if(shouldTrace){
+
+    Promise.all([
+        stateManager.shouldTrace(),
+        stateManager.shouldTransmit()
+    ]).then((values)=>{
+
+        const shouldTrace = values[0]
+        const shouldTransmit = values[1]
+
+        if(shouldTrace || shouldTransmit){
 
             const _headers = {}
 
@@ -263,12 +280,14 @@ function bundleAndSend(record){
 
     Promise.all([
         stateManager.shouldTrace(),
+        stateManager.shouldTransmit(),
         stateManager.targetHost()
     ]).then((values)=>{
         const shouldTrace = values[0]
-        const target_host = values[1]
+        const shouldTransmit = values[1]
+        const target_host = values[2]
 
-        if(shouldTrace){
+        if(shouldTrace || shouldTransmit){
             
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
             //Only capture xmlhttprequests or main_frame events going to the target host
@@ -288,7 +307,16 @@ function bundleAndSend(record){
                         _eventDetails['requestHeaders'] = JSON.stringify(_requestHeaders)
                         _eventDetails['responseHeaders'] = JSON.stringify(_responseHeaders)
                         
-                        LogUIDispatcher.packageCustomEvent(_eventDetails)
+                        if(shouldTransmit){
+                            GuidanceConnector.packageCustomEvent(_eventDetails)
+                        }
+
+                        if(shouldTrace){
+                            LogUIDispatcher.packageCustomEvent(_eventDetails)
+                        }
+                        
+
+
                         //Try to prevent memory leaks.
                         requestMap.delete(record['requestId'])
                         requestHeadersMap.delete(record['requestId'])
