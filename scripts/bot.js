@@ -107,7 +107,8 @@ $('#guide-btn').click(_=>{
         if(!pathsRequestExists){
             //No paths request is active, time to create one.
             stateManager.activePathsRequestId(crypto.randomUUID()) //Create a uuid for this paths request.
-            .then(_=>setTimeout(()=>controlSocket.makePathsRequest(), 10000))
+            //.then(_=>setTimeout(()=>controlSocket.makePathsRequest(), 10000))
+            .then(_=>controlSocket.makePathsRequest())
         }
 
     })

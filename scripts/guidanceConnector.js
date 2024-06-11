@@ -170,7 +170,7 @@ var GuidanceConnector = (function() {
                 eventSocket.sendEvent(objectToSend)
             }else{
                 _cache.push(objectToSend);
-
+                console.log("cache size: ", _cache.length)
 
                 if (_cache.length >= _cacheSize) {
                     _cache.shift()
