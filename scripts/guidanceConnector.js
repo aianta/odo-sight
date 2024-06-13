@@ -238,6 +238,15 @@ var GuidanceConnector = (function() {
         
         }
 
+        if('shouldTransmit' in changes && changes['shouldTransmit'].newValue){
+            _transmit = true
+        }
+
+        
+        if('shouldTransmit' in changes && !changes['shouldTransmit'].newValue){
+            _transmit = false
+        }
+
         if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
             _initWebsocket()
         }

@@ -25,6 +25,8 @@ const controlSocket = {
         const payload = this.makePayload('STOP_GUIDANCE_REQUEST')
         payload['pathsRequestId'] = pathsRequestId
         this.socket.send(JSON.stringify(payload))
+
+        await stateManager.shouldTransmit(false)
     },
     notifyReconnected: async function(){
         const pathsRequestId = await stateManager.activePathsRequestId()
