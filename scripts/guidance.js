@@ -1,5 +1,7 @@
 console.log('hello from guidance script')
 
+const highlightedElements = new Map();
+
 const guidanceSocket = {
     socket: undefined,
     pathsRequestId: undefined,
@@ -31,9 +33,15 @@ const guidanceSocket = {
         switch(data.type){
             case "SHOW_NAVIGATION_OPTIONS":
 
-                const xpath = data.navigationOptions[0].xpath
-                highlightElement(xpath)
+                clearHighlighting()
 
+                setTimeout(()=>{
+                    data.navigationOptions.forEach(option=>{
+                        highlightOption(option)
+                    })
+                },3000) //TODO fix this
+
+               
                 const response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
                 response['pathsRequestId'] = guidanceSocket.pathsRequestId
                 guidanceSocket.socket.send(JSON.stringify(response))
@@ -105,14 +113,47 @@ function getElementByXpath(path) {
     return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 }
 
-const exampleXpath = '//html/body/div[3]/div[2]/div/div/div[1]/div/div/div/div/div/div[2]/form[1]/div[3]/div[2]/button'
+function highlightOption(option){
+    //If the option's xpath value is an object, then we need to highlight a dynamicXPath
+    if(typeof option.xpath === 'object' && !Array.isArray(option.xpath) && option.xpath !== null){
+        const dynamicXPath = option.xpath
+        console.log("Looking for parent: ", dynamicXPath.prefix)
+        let parentElement = getElementByXpath(dynamicXPath.prefix)
 
-// setTimeout(()=>{
-//     console.log('highlighting example xpath')
-//     getElementByXpath(exampleXpath).style.boxShadow = "0px 0px 5px 11px #E6EF3E"
-// }, 2000)
+        let highlightSites = [...parentElement.childNodes].filter(child=>child.localName === dynamicXPath.dynamicTag)
+            .map((child, index)=>{
+                let computedXPath = `${dynamicXPath.prefix}/${dynamicXPath.dynamicTag}`
 
+                if(index === 0){
+                    computedXPath = computedXPath + `${dynamicXPath.suffix}`
+                }else{
+                    computedXPath = computedXPath + `[${index}]${dynamicXPath.suffix}`
+                }
 
-function highlightElement(xpath){
-    getElementByXpath(xpath).style.boxShadow = "0px 0px 5px 11px #E6EF3E"
+                //TODO -> handle case where the computedXPath doesn't match anything in the document
+
+                return computedXPath
+            })
+        highlightSites.forEach(xpath=>highlightXPath(xpath))
+    }else{
+        //Otherwise it's a plain old xpath, go highlight it.
+        highlightXPath(option.xpath)
+    }
+
+}
+
+function highlightXPath(xpath){
+    const element = getElementByXpath(xpath)
+
+    highlightedElements.set(xpath, element.style.boxShadow) //Save the original state of the element's boxshadow CSS style.
+
+    element.style.boxShadow = "0px 0px 5px 11px #E6EF3E" //Apply highlight
+
+}
+
+function clearHighlighting(){
+    highlightedElements.forEach((value,key,map)=>{
+        console.log("clearing highlight for ", key)
+        getElementByXpath(key).style.boxShadow = value //Return the element's box shadow style to its original state.
+    })
 }

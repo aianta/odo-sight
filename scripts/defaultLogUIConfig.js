@@ -9,17 +9,12 @@ const _defaultConfig = {
     },
     browserEvents: {
       trackCursor: false,
-      URLChanges: true,
+      URLChanges: false,
       contextMenu: false,
       pageFocus: false,
       pageResize: false
     },
     trackingConfiguration: {
-        'page-load':{
-          selector: 'html',
-          event: 'load',
-          name: 'PAGE_LOAD'
-        },
         'list-item-clicks': {
           selector: 'li',
           event: 'click',
