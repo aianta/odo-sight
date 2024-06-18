@@ -15,6 +15,26 @@ $('#back-to-menu-btn').button({
 })
 
 /**
+ * Fetch and populate the guidance options dropdown.
+ */
+services.getGuidanceOptions().then((options)=>{
+
+    $('#target-node-select').empty() //Clear the dummy/placeholder/previous options
+
+    options.forEach(option=>{
+        $('#target-node-select').append(
+            $('<option></option>').attr("value", option.id).text(`${option.method}-${option.path}`)
+        )
+    })
+
+})
+
+
+
+
+
+
+/**
  * This runs once when the bot view is loaded.
  * Decide what button to display based on whether or not 
  * there is an active paths request. 

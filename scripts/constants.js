@@ -19,7 +19,10 @@ CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME = "content scripts<->background"
  */
 _ODO_SIGHT_VALID_STATE_VERISON = "0.1"
 
-
+/**
+ * Guidance service
+ */
+_GUIDANCE_SERVICE_OPTIONS_PATH = "/api/targetNodes"
 
 /**
  * Odo Sight Support 

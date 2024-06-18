@@ -10,6 +10,19 @@
 var services = (function(){
     var _public = {}
 
+    _public.getGuidanceOptions = function(){
+        console.log("Fetching guidance options from guidance service")
+        return stateManager.guidanceHost().then(function(guidanceHost){
+            const PATH = `https://${guidanceHost}${_GUIDANCE_SERVICE_OPTIONS_PATH}`
+            return axios.get(PATH).then(function(response){
+                return Promise.resolve(response.data)
+            }).catch(function(err){
+                console.error("Error fetching guidance options! ", err)
+                return Promise.reject(err)
+            })
+        })
+    }
+
     /**
      * Make a call to the guidance service to ensure successfuly communication over HTTPS. 
      * If an error occurs then the user likely has to manually accept a self-signed certificate from the server.
