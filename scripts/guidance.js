@@ -13,9 +13,15 @@ const guidanceSocket = {
     },
 
     notifyReconnected: async function(){
-        const payload = this.makePayload('NOTIFY_RECONNECT')
-        payload['pathsRequestId'] = guidanceSocket.pathsRequestId
-        this.socket.send(JSON.stringify(payload))
+        try{
+            console.log("Attempting to notify reconnected!")
+            const payload = this.makePayload('NOTIFY_RECONNECT')
+            payload['pathsRequestId'] = guidanceSocket.pathsRequestId
+            this.socket.send(JSON.stringify(payload))
+        }catch(error){
+            console.error(error)
+        }
+        
     },
 
     onOpen: async function(){
@@ -31,6 +37,14 @@ const guidanceSocket = {
         const data = JSON.parse(msg.data)
 
         switch(data.type){
+            case "CLEAR_NAVIGATION_OPTIONS":
+                clearHighlighting();
+                
+                var response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
+                response['pathsRequestId'] = guidanceSocket.pathsRequestId
+                guidanceSocket.socket.send(JSON.stringify(response))
+
+                break;
             case "SHOW_NAVIGATION_OPTIONS":
 
                 clearHighlighting()
@@ -42,7 +56,7 @@ const guidanceSocket = {
                 },3000) //TODO fix this
 
                
-                const response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
+                var response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
                 response['pathsRequestId'] = guidanceSocket.pathsRequestId
                 guidanceSocket.socket.send(JSON.stringify(response))
 
@@ -74,21 +88,31 @@ window.addEventListener("message", (event)=>{
         switch(event.data.type){
             //When we receive the socket config create the guidance socket and bind handlers.
             case "GUIDANCE_SOCKET_CONFIG":
-                console.log('Got guidance socket configuration')
-                guidanceSocket.pathsRequestId = event.data.id
-                guidanceSocket.remoteHost = event.data.guidanceHost
-
-                if(guidanceSocket.socket === undefined){
-                    const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}`)
-                    socket.addEventListener('open', guidanceSocket.onOpen )
-                    socket.addEventListener('error', guidanceSocket.onError)
-                    socket.addEventListener('message', guidanceSocket.onMessage )
-                    socket.addEventListener('close', guidanceSocket.onClose )
+                try{
+                    console.log('Got guidance socket configuration')
+                    guidanceSocket.pathsRequestId = event.data.id
+                    guidanceSocket.remoteHost = event.data.guidanceHost
     
-                    guidanceSocket.socket = socket
-                }else{
-                    guidanceSocket.notifyReconnected()
+                    if(guidanceSocket.socket === undefined || guidanceSocket.socket.readyState !== 1){
+                        console.log("Creating guidance socket.")
+                        const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}`)
+                        socket.addEventListener('open', guidanceSocket.onOpen )
+                        socket.addEventListener('error', guidanceSocket.onError)
+                        socket.addEventListener('message', guidanceSocket.onMessage )
+                        socket.addEventListener('close', guidanceSocket.onClose )
+        
+                        guidanceSocket.socket = socket
+                    }else{
+    
+                        console.log("Guidance socket exists")
+                        guidanceSocket.notifyReconnected()
+                    }
+                }catch(error){
+                    console.error("Error handling guidance socket config")
+                    console.error(error)
                 }
+
+
                 break;
             case "GUIDANCE_SOCKET_STOP":
                 guidanceSocket.shutdown()
