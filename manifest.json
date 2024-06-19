@@ -32,7 +32,8 @@
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
             "/scripts/guidanceConnector.js",
-            "/scripts/background.js"
+            "/scripts/background.js",
+            "/scripts/init.js"
             ]
     },
     "options_ui":{

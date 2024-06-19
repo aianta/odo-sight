@@ -110,13 +110,13 @@ function observeStateChange(changes){
         sendCacheOverflowError()
     }
 
-    if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
-        gatherAndSendGuidanceSocketConfig()
-    }
+    // if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
+    //     gatherAndSendGuidanceSocketConfig()
+    // }
 
-    if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue){
-        stopGuidanceSocket()
-    }
+    // if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue){
+    //     stopGuidanceSocket()
+    // }
 }
 
 browser.storage.local.onChanged.addListener(observeStateChange)
@@ -173,11 +173,11 @@ function sendCacheOverflowError(){
 function gatherAndSendGuidanceSocketConfig(){
     Promise.all([
         stateManager.guidanceHost(),
-        stateManager.activePathsRequestId()
+        stateManager.clientId()
     ]).then(values=>{
         const guidanceHost = values[0]
-        const id = values[1]
-        sendGuidanceSocketConfig(id, guidanceHost)
+        const clientId = values[1]
+        sendGuidanceSocketConfig( guidanceHost, clientId)
     },
     err=>console.log('Error while gather guidance socket config: ',err)
 )
@@ -190,11 +190,11 @@ function stopGuidanceSocket(){
     })
 }
 
-function sendGuidanceSocketConfig(id, guidanceHost){
+function sendGuidanceSocketConfig( guidanceHost, clientId){
     window.postMessage({
         origin: 'main.js',
         type: "GUIDANCE_SOCKET_CONFIG",
-        id: id,
+        clientId: clientId,
         guidanceHost: guidanceHost
     })
 }

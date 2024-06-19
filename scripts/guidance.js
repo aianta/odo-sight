@@ -4,9 +4,10 @@ const highlightedElements = new Map();
 
 const guidanceSocket = {
     socket: undefined,
-    pathsRequestId: undefined,
+    clientId: undefined, 
     makePayload: function(type){
         return {
+            clientId: guidanceSocket.clientId,
             source: 'GuidanceSocket',
             type: type
         }
@@ -16,7 +17,6 @@ const guidanceSocket = {
         try{
             console.log("Attempting to notify reconnected!")
             const payload = this.makePayload('NOTIFY_RECONNECT')
-            payload['pathsRequestId'] = guidanceSocket.pathsRequestId
             this.socket.send(JSON.stringify(payload))
         }catch(error){
             console.error(error)
@@ -29,42 +29,47 @@ const guidanceSocket = {
         guidanceSocket.notifyReconnected()
     },
     onError: async function(err){
-
+        console.log(err)
     },
     onMessage: async function(msg){
-        console.log('[guidance.js] GuidanceSocket got: ', msg)
-        console.log(msg.data)
-        const data = JSON.parse(msg.data)
+        try{
+            console.log('[guidance.js] GuidanceSocket got: ', msg)
+            console.log(msg.data)
+            const data = JSON.parse(msg.data)
 
-        switch(data.type){
-            case "CLEAR_NAVIGATION_OPTIONS":
-                clearHighlighting();
+            switch(data.type){
+                case "CLEAR_NAVIGATION_OPTIONS":
+                    clearHighlighting();
+                    
+                    var response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
+                    guidanceSocket.socket.send(JSON.stringify(response))
+
+                    break;
+                case "SHOW_NAVIGATION_OPTIONS":
+                    console.log('Got SHOW_NAVIGATION_OPTIONS')
+                    clearHighlighting()
+
+                    setTimeout(()=>{
+                        data.navigationOptions.forEach(option=>{
+                            highlightOption(option)
+                        })
+                    },3000) //TODO fix this
+
                 
-                var response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
-                response['pathsRequestId'] = guidanceSocket.pathsRequestId
-                guidanceSocket.socket.send(JSON.stringify(response))
+                    var response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
+                    response['pathsRequestId'] = data.pathsRequestId
+                    guidanceSocket.socket.send(JSON.stringify(response))
 
-                break;
-            case "SHOW_NAVIGATION_OPTIONS":
-
-                clearHighlighting()
-
-                setTimeout(()=>{
-                    data.navigationOptions.forEach(option=>{
-                        highlightOption(option)
-                    })
-                },3000) //TODO fix this
-
-               
-                var response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
-                response['pathsRequestId'] = guidanceSocket.pathsRequestId
-                guidanceSocket.socket.send(JSON.stringify(response))
-
-                break;
+                    break;
+            }
+        }catch(err){
+            console.log(err)
         }
+
+        
     },
     onClose: async function(event){
-
+        console.log("[guidance.js] socket closed!")
     },
     shutdown: function(){
         guidanceSocket.socket.removeEventListener('close', guidanceSocket.onClose)
@@ -90,8 +95,8 @@ window.addEventListener("message", (event)=>{
             case "GUIDANCE_SOCKET_CONFIG":
                 try{
                     console.log('Got guidance socket configuration')
-                    guidanceSocket.pathsRequestId = event.data.id
                     guidanceSocket.remoteHost = event.data.guidanceHost
+                    guidanceSocket.clientId = event.data.clientId
     
                     if(guidanceSocket.socket === undefined || guidanceSocket.socket.readyState !== 1){
                         console.log("Creating guidance socket.")
@@ -115,7 +120,7 @@ window.addEventListener("message", (event)=>{
 
                 break;
             case "GUIDANCE_SOCKET_STOP":
-                guidanceSocket.shutdown()
+                //guidanceSocket.shutdown()
                 break;
         }
     }

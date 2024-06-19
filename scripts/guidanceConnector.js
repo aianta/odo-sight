@@ -35,19 +35,19 @@ var GuidanceConnector = (function() {
     _public.dispatcherType = 'guidance';
 
     var eventSocket = {
-        makePayload: function(type){
+        makePayload: async function(type){
             return {
+                clientId: await stateManager.clientId(),
                 source: 'EventSocket',
                 type: type
             }
         },
         notifyReconnected: async function(){
-            const payload = this.makePayload('NOTIFY_RECONNECT')
-            payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+            const payload = await this.makePayload('NOTIFY_RECONNECT')
             _websocket.send(JSON.stringify(payload))
         },
         sendEvent: async function(event){
-            const payload = this.makePayload('EVENT')
+            const payload = await this.makePayload('EVENT')
             payload['pathsRequestId'] = await stateManager.activePathsRequestId()
             payload['event'] = event
             _websocket.send(JSON.stringify(payload))
@@ -64,7 +64,7 @@ var GuidanceConnector = (function() {
             let payload = null
             switch(data.type){
                 case "GET_LOCAL_CONTEXT":
-                    payload = eventSocket.makePayload('LOCAL_CONTEXT')
+                    payload = await eventSocket.makePayload('LOCAL_CONTEXT')
                     payload['localContext'] = _cache
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
 
@@ -75,7 +75,7 @@ var GuidanceConnector = (function() {
                     _transmit = true
                     await stateManager.shouldTransmit(true)
                     
-                    payload = eventSocket.makePayload("TRANSMISSION_STARTED")
+                    payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
                     
 
@@ -86,7 +86,7 @@ var GuidanceConnector = (function() {
                     _transmit = false
                     await stateManager.shouldTransmit(false)
 
-                    payload = eventSocket.makePayload("TRANSMISSION_STOPPED")
+                    payload = await eventSocket.makePayload("TRANSMISSION_STOPPED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
                     
                     _websocket.send(JSON.stringify(payload))
@@ -247,13 +247,13 @@ var GuidanceConnector = (function() {
             _transmit = false
         }
 
-        if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
-            _initWebsocket()
-        }
+        // if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
+        //     _initWebsocket()
+        // }
 
-        if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue && _websocket !== null){
-            eventSocket.cleanup()
-        }
+        // if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue && _websocket !== null){
+        //     eventSocket.cleanup()
+        // }
     }
 
     return _public;
@@ -261,8 +261,5 @@ var GuidanceConnector = (function() {
 
 
 browser.storage.local.onChanged.addListener(GuidanceConnector.handleStateChange)
-stateManager.exists('activePathsRequestId').then(exists=>{
-    if(exists){
-        GuidanceConnector.startEventSocket()
-    }
-});
+
+GuidanceConnector.startEventSocket()

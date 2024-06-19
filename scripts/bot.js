@@ -5,8 +5,9 @@ browser.runtime.onSuspend.addListener(_=>{controlSocket.shutdown()})
 const controlSocket = {
     socket: undefined, 
     messageQueue: [],
-    makePayload: function(type){
+    makePayload: async function(type){
         return {
+            clientId: await stateManager.clientId(),
             source: 'ControlSocket',
             type: type
         }
@@ -15,7 +16,7 @@ const controlSocket = {
         console.log("Controls socket ON makePathsRequest: ", controlSocket.socket)
         const pathsRequestId = await stateManager.activePathsRequestId()
         const targetNode = $('#target-node-select').find(":selected").val()
-        const payload = this.makePayload('PATHS_REQUEST')
+        const payload = await this.makePayload('PATHS_REQUEST')
     
         payload['userLocation'] = await getUserLocation()
         payload['pathsRequestId'] = pathsRequestId
@@ -31,31 +32,32 @@ const controlSocket = {
     },
     makeStopRequest: async function(){
         const pathsRequestId = await stateManager.activePathsRequestId()
-        const payload = this.makePayload('STOP_GUIDANCE_REQUEST')
+        const payload = await this.makePayload('STOP_GUIDANCE_REQUEST')
         payload['pathsRequestId'] = pathsRequestId
         controlSocket.socket.send(JSON.stringify(payload))
 
         await stateManager.shouldTransmit(false)
     },
-    notifyReconnected: async function(){
-        const pathsRequestId = await stateManager.activePathsRequestId()
-        
-        const payload = this.makePayload('NOTIFY_RECONNECT')
-        payload['pathsRequestId'] = pathsRequestId
+    notifyReconnected: async function(){        
+        const payload = await this.makePayload('NOTIFY_RECONNECT')
+
         controlSocket.socket.send(JSON.stringify(payload))
     },
     onOpen: async function(event){
         console.log(`[bot.js] Controls socket opened!`)
 
-        //Check to see if there is an active paths request if so, notify the server that the controls socket has reconnected
-        if(await stateManager.exists('activePathsRequestId')){
-            controlSocket.notifyReconnected()
-
-            //Send any messages that have been queued...
-            while(controlSocket.messageQueue.length > 0){
-                controlSocket.socket.send(controlSocket.messageQueue.pop())
-            }
+        controlSocket.notifyReconnected();
+        //Send any messages that have been queued...
+        while(controlSocket.messageQueue.length > 0){
+            controlSocket.socket.send(controlSocket.messageQueue.pop())
         }
+
+        // //Check to see if there is an active paths request if so, notify the server that the controls socket has reconnected
+        // if(await stateManager.exists('activePathsRequestId')){
+        //     controlSocket.notifyReconnected()
+
+            
+        // }
     },
     onError: async function(error){
 
