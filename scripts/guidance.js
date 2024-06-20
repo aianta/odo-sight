@@ -5,6 +5,38 @@ const highlightedElements = new Map();
 const guidanceSocket = {
     socket: undefined,
     clientId: undefined, 
+    reconnectionReference: null,
+    reconnectionAttempts : 0,
+    socketPersistence: function(){
+        //If the recoonection logic hasn't been set up yet
+        if(!guidanceSocket.reconnectionReference){
+
+            //Set it up on an interval
+            guidanceSocket.reconnectionReference = setInterval(()=>{
+                console.log(`[guidance.js] Checking WebSocket connection... websocket is ${guidanceSocket.socket} readyState: ${guidanceSocket.socket.readyState}`)
+                if(guidanceSocket.socket){//If there is a non-null websocket object
+
+                    switch(guidanceSocket.socket.readyState){
+                        case 0:
+                            return;
+                        case 1:
+                            console.log("[guidance.js] WebSocket connection re-established")
+                            clearInterval(guidanceSocket.reconnectionReference)
+                            guidanceSocket.reconnectionAttempts = 0;
+                            guidanceSocket.reconnectionReference = null;
+                            return;
+                        default:
+                            console.log(`[guidance.js] WebSocket connection to the server has failed; unable to reconnect.`)
+                            guidanceSocket.shutdown()
+                    }
+                }
+
+                guidanceSocket.reconnectionAttempts += 1;
+                console.log(`(Re-)connection attempt ${guidanceSocket.reconnectionAttempts}`)
+                initGuidanceSocket()
+            })
+        }
+    },
     makePayload: function(type){
         return {
             clientId: guidanceSocket.clientId,
@@ -38,6 +70,12 @@ const guidanceSocket = {
             const data = JSON.parse(msg.data)
 
             switch(data.type){
+                case "PATH_COMPLETE":
+                    clearHighlighting(); 
+                    showPathComplete();
+                    var response = guidanceSocket.makePayload("PATH_COMPLETE_ACK")
+                    guidanceSocket.socket.send(JSON.stringify(response))
+                    break;
                 case "CLEAR_NAVIGATION_OPTIONS":
                     clearHighlighting();
                     
@@ -70,6 +108,7 @@ const guidanceSocket = {
     },
     onClose: async function(event){
         console.log("[guidance.js] socket closed!")
+        guidanceSocket.socketPersistence()
     },
     shutdown: function(){
         guidanceSocket.socket.removeEventListener('close', guidanceSocket.onClose)
@@ -126,11 +165,7 @@ window.addEventListener("message", (event)=>{
     }
 })
 
-//Request socket config 
-window.postMessage({
-    origin: 'guidance.js',
-    type: 'GET_GUIDANCE_SOCKET_CONFIG'
-})
+
 
 /**
  * https://stackoverflow.com/questions/10596417/is-there-a-way-to-get-element-by-xpath-using-javascript-in-selenium-webdriver
@@ -186,3 +221,79 @@ function clearHighlighting(){
         getElementByXpath(key).style.boxShadow = value //Return the element's box shadow style to its original state.
     })
 }
+
+function initGuidanceSocket(){
+    //Request socket config 
+    window.postMessage({
+        origin: 'guidance.js',
+        type: 'GET_GUIDANCE_SOCKET_CONFIG'
+    })
+}
+
+initGuidanceSocket();
+
+function showPathComplete(){
+    var sucessDiv = document.createElement("div")
+    sucessDiv.innerHTML = `
+    <h1 class="odo-success-text">Path Complete!</h1>
+    `
+    sucessDiv.setAttribute("class", "odo-path-success-container")
+    document.body.appendChild(sucessDiv)
+    console.log("[guidance.js] allegedly showing path complete")
+
+    sucessDiv.setAttribute("class", "odo-path-success-container odo-path-success-animation")
+    setTimeout(()=>{
+        sucessDiv.remove()
+    }, 4000) //time here should match animation length defined in 'guidanceStyles'
+}
+
+
+
+
+/**
+ * Add guidance specific CSS to the page
+ */
+var guidanceStyles = `
+
+    
+
+    @keyframes slideFade {
+        0% {
+            transform: translateY(0%);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-50%);
+            opacity: 0;
+        }
+    }
+
+    .odo-path-success-animation{
+        animation: slideFade 4s linear;
+        animation-fill-mode: forwards;
+    }
+    
+    .odo-path-success-container{
+        position: fixed;
+        top: 50%;
+        left: 25%;
+        z-index: 9999;
+    }
+
+    .odo-success-text{
+        font: 8rem "Fira Sans", sans-serif;
+        color: #8ccc92;
+    }
+
+`
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(guidanceStyles)
+document.adoptedStyleSheets.push(sheet)
+
+// var odoStyleSheet = document.createElement("stlye")
+// odoStyleSheet.setAttribute("type", "text/css")
+// odoStyleSheet.textContent = guidanceStyles
+// document.head.appendChild(odoStyleSheet)
+
+

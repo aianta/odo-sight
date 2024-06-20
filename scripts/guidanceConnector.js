@@ -28,13 +28,18 @@ var GuidanceConnector = (function() {
     var _libraryStartTimestamp = null;
     var _cache = [];
     var _websocket = null;
+    var _websocketReconnectionReference = null;
     var _guidanceHost = null;
     var _transmit = false;
+    var _websocketReconnectionAttempts = 0;
+    var _maxWebsocketReconnectionAttempts  = 10;
+    var _websocketReconnectionAttemptDelay = 10000; //10 s
 
 
     _public.dispatcherType = 'guidance';
 
     var eventSocket = {
+        
         makePayload: async function(type){
             return {
                 clientId: await stateManager.clientId(),
@@ -56,7 +61,21 @@ var GuidanceConnector = (function() {
             console.log(`[guidanceConnector.js] EventSocket connection established`)
             eventSocket.notifyReconnected()
         },
-        onClose: async function(event){},
+        onClose: async function(event){
+
+            //TODO -> proper handling using error codes?
+            //https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
+
+
+
+            if(await stateManager.boundDispatcher() === 'local'){ //If we're in bot mode, try to re-establish the connection.
+                _public.socketPersistence()
+            }
+            
+            
+
+
+        },
         onMessage: async function(msg){
             console.log('[guidanceConnector.js] EventSocket got: ', msg)
             console.log(msg.data)
@@ -70,6 +89,15 @@ var GuidanceConnector = (function() {
 
                     _websocket.send(JSON.stringify(payload))
                     _cache = [] //Clear the cache/localContext
+                    break
+                case "PATH_COMPLETE":
+                    
+                    await stateManager.shouldTransmit(false)
+                    await stateManager.clearActivePathsRequestId()
+                    
+                    payload = await eventSocket.makePayload("PATH_COMPLETE_ACK")                
+                    _websocket.send(JSON.stringify(payload))
+
                     break
                 case "START_TRANSMISSION":
                     _transmit = true
@@ -94,7 +122,9 @@ var GuidanceConnector = (function() {
             }
 
         },
-        onError: async function(error){},
+        onError: async function(error){
+            console.error(error)
+        },
         cleanup: function(){
             console.log('Event socket cleaning up')
             _websocket.removeEventListener('open', eventSocket.onOpen)
@@ -120,10 +150,47 @@ var GuidanceConnector = (function() {
         
     }
 
+    _public.socketPersistence = function(){
+
+        //If the reconnection logic hasn't been set up yet
+        if(!_websocketReconnectionReference){
+            
+            //Set it up on an interval.
+            _websocketReconnectionReference = setInterval(()=>{
+                console.log(`[guidanceConnector.js] Checking WebSocket connection... websocket is: ${_websocket} readyState: ${_websocket.readyState}`)
+                if(_websocket){ //If there is a non-null websocket object
+
+                    switch(_websocket.readyState){
+                        case 0:
+                            return;
+                        case 1:
+                            console.log("[guidanceConnector.js] WebSocket connection re-established")
+                            clearInterval(_websocketReconnectionReference)
+                            _websocketReconnectionAttempts = 0
+                            _websocketReconnectionReference = null;
+                            return;
+                        default:
+                            console.log("[guidanceConnector.js] WebSocket connection to the server has failed; unable to reconnect.")
+                            eventSocket.cleanup()       
+                    }
+
+                }
+
+                _websocketReconnectionAttempts += 1;
+                
+                console.log(`(Re-)connection attempt: ${_websocketReconnectionAttempts}`)
+                _initWebsocket()
+
+            }, _websocketReconnectionAttemptDelay) //10s
+
+        }
+
+    }
     
 
     _public.startEventSocket = function(){
         _initWebsocket()
+        _public.socketPersistence()
     }
 
     _public.stopEventSocket = function(){
@@ -247,13 +314,6 @@ var GuidanceConnector = (function() {
             _transmit = false
         }
 
-        // if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
-        //     _initWebsocket()
-        // }
-
-        // if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue && _websocket !== null){
-        //     eventSocket.cleanup()
-        // }
     }
 
     return _public;
