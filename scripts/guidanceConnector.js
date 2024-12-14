@@ -106,7 +106,7 @@ var GuidanceConnector = (function() {
                     payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
                     
-
+                    console.log("Sending transmission started confirmation!")
 
                     _websocket.send(JSON.stringify(payload))
                     break

@@ -2,9 +2,76 @@
 //Close the controls socket on unload
 browser.runtime.onSuspend.addListener(_=>{controlSocket.shutdown()})
 
+$('#execution-demo-btn').button({
+    icon: 'fa-solid fa-gear blue',
+    label: 'Execution Demo'
+}).click(_=>{
+
+    Promise.all([
+        stateManager.exists('activePathsRequestId')
+    ]).then(values=>{
+        const pathsRequestExists = values[0]
+
+        if(!pathsRequestExists){
+            //No paths/execution request is active. time to create one.
+            stateManager.activePathsRequestId(crypto.randomUUID())
+            .then(_=>{
+                console.log("Checking control socket status")
+                if(controlSocket.socket === null || controlSocket.socket.readyState !== 1){
+                    console.log("Need to initalize new control socket")
+                    return initControlSocket()
+                }else{
+                    console.log("Control socket exists and is connected")
+                    return Promise.resolve(controlSocket.socket)
+                }
+            })
+            .then(socket=>{
+                controlSocket.socket = socket
+                console.log("Controls socket: ", controlSocket.socket)
+                controlSocket.executionDemo()})
+        }else{
+            controlSocket.executionDemo()
+        }
+    })
+
+})
+
+
 const controlSocket = {
     socket: undefined, 
     messageQueue: [],
+    executionDemo: async function(){
+        console.log("Sending execution request")
+
+        let payload = await this.makePayload("EXECUTION_REQUEST")
+        payload['target'] = "27669987-9530-4233-baa3-619e61a66b9f"
+        payload['id'] = await stateManager.activePathsRequestId()
+        payload['userLocation'] = await getUserLocation()
+        payload['parameters'] = [
+            {
+                "id": "f524ee66-3dea-449b-ade5-5bdad5caf77e",
+                "type": "InputParameter",
+                "value": "ianta@ualberta.ca"
+            },
+            {
+                "id": "f450cae3-2c3c-4bde-ac36-2fc88adaf910",
+                "type": "InputParameter",
+                "value": "01134hello"
+            },
+            {
+                "id": "9f19272c-7748-4c56-af83-e5983ac158b2",
+                "type": "SchemaParameter",
+                "query": "World History"
+            }
+        ]
+
+
+        if(controlSocket.socket == null || controlSocket.socket.readyState !== 1){
+            this.messageQueue.push(JSON.stringify(payload))
+        }else{
+            controlSocket.socket.send(JSON.stringify(payload))
+        }
+    },
     makePayload: async function(type){
         return {
             clientId: await stateManager.clientId(),
@@ -28,7 +95,6 @@ const controlSocket = {
             controlSocket.socket.send(JSON.stringify(payload))
         }
 
-        //controlSocket.socket.send(JSON.stringify(payload))
     },
     makeStopRequest: async function(){
         const pathsRequestId = await stateManager.activePathsRequestId()
@@ -147,7 +213,6 @@ $('#guide-btn').click(_=>{
                     return Promise.resolve(controlSocket.socket)
                 }
             })
-            //.then(_=>setTimeout(()=>controlSocket.makePathsRequest(), 10000))
             .then(socket=>{
                 controlSocket.socket = socket
                 console.log("Controls socket: ", controlSocket.socket)

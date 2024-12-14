@@ -229,7 +229,7 @@
                     return
                 }
                 
-                console.debug(`passing eventDetails ${JSON.stringify(eventDetails, ["name", "action", "xpath"], 4)}`)
+                //console.debug(`passing eventDetails ${JSON.stringify(eventDetails, ["name", "action", "xpath"], 4)}`)
                 eventDetails.domSnapshot = captureDOMSnapshot()
                 
                 //Stringify nodes before we send it

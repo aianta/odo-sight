@@ -99,6 +99,54 @@ const guidanceSocket = {
                     guidanceSocket.socket.send(JSON.stringify(response))
 
                     break;
+                case "EXECUTE":
+                    
+                    switch(data.action){
+                        
+                        case "input":
+
+                            const inputXpath = data.xpath
+
+                            var targetElement = getElementByXpath(inputXpath)
+
+                            if(targetElement === undefined){
+                                console.log("Could not find element to enter data into")
+                            }
+
+                            performInput(targetElement, data.data)
+
+                            break;
+                        case "queryDom":
+                            
+                            console.log("Got queryDom command!")
+                            let queryResults = performDomQuery(data)
+                            
+                            var response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                            response['pathsRequestId'] = data.pathsRequestId
+                            response['queryResults'] = queryResults
+
+                            guidanceSocket.socket.send(JSON.stringify(response))
+
+                            break;
+                        case "click":
+                            console.log("Got click command to execute!")
+                            const clickXpath = data.xpath
+
+                            var targetElement = getElementByXpath(clickXpath)
+
+                            if(targetElement === undefined){
+                                console.log("Could not find element to click!")
+                                return
+                            }
+
+                            console.log("Performing click on target element")
+                            performClick(targetElement)
+                            break;
+
+                    }
+
+
+                    break;
             }
         }catch(err){
             console.log(err)
@@ -165,7 +213,69 @@ window.addEventListener("message", (event)=>{
     }
 })
 
+function performDomQuery(msg){
+    const dynamicXPath = msg.xpath
+    console.log("Looking for parent: ", dynamicXPath.prefix)
+    let parentElement = getElementByXpath(dynamicXPath.prefix)
 
+    let sites = [...parentElement.childNodes].filter(child=>child.localName === dynamicXPath.dynamicTag)
+        .map((child, index)=>{
+            let computedXPath = `${dynamicXPath.prefix}/${dynamicXPath.dynamicTag}`
+            
+            if(index !== 0){
+                computedXPath = computedXPath + `[${index}]`
+            }
+            
+            console.log("computed path: ", computedXPath)
+            return {xpath:computedXPath}
+        })
+        .map(xpath=>{
+            let e = getElementByXpath(xpath.xpath)
+            if(e === undefined || e === null){
+                console.log("Failed to find element@",xpath)
+            }else{
+                console.log("resolved element: ", e.outerHTML )
+            }
+            
+            return {xpath: xpath.xpath + dynamicXPath.suffix,
+                    element:e}
+        })
+        .map(element=>{
+            return {
+                xpath: element.xpath,
+                html: element.element.outerHTML
+            }}
+        );
+    
+        console.log("Got ", sites.length, " query results!")
+
+        return sites
+}
+
+function performInput(element, data ){
+    /**
+     * https://stackoverflow.com/questions/61190078/simulating-keypress-into-an-input-field-javascript
+     */
+    element.value = data
+    element.dispatchEvent(
+        new Event('input', {bubbles: true, cancelable: true})
+    )
+
+}
+
+function performClick(element){
+    /**
+     * https://stackoverflow.com/questions/809057/how-do-i-programmatically-click-on-an-element-in-javascript
+     */
+    const clickEvent = new MouseEvent("click", {
+        "view": window,
+        "bubbles": true,
+        "cancelable":false
+    }) 
+
+    element.dispatchEvent(clickEvent);
+    
+}
 
 /**
  * https://stackoverflow.com/questions/10596417/is-there-a-way-to-get-element-by-xpath-using-javascript-in-selenium-webdriver

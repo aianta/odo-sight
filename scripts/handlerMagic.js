@@ -15,7 +15,7 @@ if(!Node.prototype.realAddEventListener){ //Deeply important, see 2nd stackoverf
 }
 
 Node.prototype.addEventListener = function(a,b,c){
-    console.log('modified addEventListenerInvoked!')
+    //console.log('modified addEventListenerInvoked!')
     //console.log(this)
     
     this.realAddEventListener(a,b,c)
