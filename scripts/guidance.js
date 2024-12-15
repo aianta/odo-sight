@@ -223,29 +223,12 @@ function performDomQuery(msg){
             let computedXPath = `${dynamicXPath.prefix}/${dynamicXPath.dynamicTag}`
             
             if(index !== 0){
-                computedXPath = computedXPath + `[${index}]`
+                computedXPath = computedXPath + `[${index+1}]` //Xpaths are 1-indexed, so if the index is 0, the xpath index is 1, and we don't need square brackets. 
             }
             
-            console.log("computed path: ", computedXPath)
-            return {xpath:computedXPath}
+            console.log("computed path: ", computedXPath + dynamicXPath.suffix)
+            return {xpath:computedXPath + dynamicXPath.suffix, html: child.outerHTML}
         })
-        .map(xpath=>{
-            let e = getElementByXpath(xpath.xpath)
-            if(e === undefined || e === null){
-                console.log("Failed to find element@",xpath)
-            }else{
-                console.log("resolved element: ", e.outerHTML )
-            }
-            
-            return {xpath: xpath.xpath + dynamicXPath.suffix,
-                    element:e}
-        })
-        .map(element=>{
-            return {
-                xpath: element.xpath,
-                html: element.element.outerHTML
-            }}
-        );
     
         console.log("Got ", sites.length, " query results!")
 
