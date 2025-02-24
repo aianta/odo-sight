@@ -4,6 +4,30 @@
  * 
  */
 
+/**
+ * I think background page unloading is interrupting automated execution
+ * when the server takes a while to figure out the next action. 
+ * 
+ * I already implemented websocket ping ponging and that doesn't
+ * seem to actually prevent the background page from unloading. 
+ * 
+ * https://discourse.mozilla.org/t/how-to-stop-a-background-script-from-going-idle-in-mv3/128327
+ * 
+ * The link above shows how to prevent the background page from unloading
+ * in a different fashion. 
+ * 
+ * I'm gonna try this for now, but ultimately this should be refactored
+ * or the websocket behavior should be clarified. 
+ * 
+ * I could also do higher-level ping ponging on the websockets and 
+ * that might be cleaner as well. 
+ */
+browser.alarms.create("keep-odox-alive", {
+    periodInMinutes: 0.25
+})
+browser.alarms.onAlarm.addListener(()=>{
+    console.log("Keeping OdoX alive...")
+})
 
 //Bind init function to appropriate runtime events. 
 //This is done here to avoid double initialization that would occur if it was done in 'stateManager.js'. 

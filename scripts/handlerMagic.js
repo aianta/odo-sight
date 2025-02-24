@@ -50,3 +50,19 @@ Node.prototype.addEventListener = function(a,b,c){
 
 }
 
+/**
+ * Temporary Patch:
+ * Confirm modals should be auto-accepted.
+ * Naturally this is dangerous behavior, the real solution need to instrument confirm() modals
+ * and integrate them into our navigational model. 
+ * 
+ * Some related SO posts.
+ * 
+ * https://stackoverflow.com/questions/43434547/overriding-javascript-alerts-in-chrome-extension
+ * https://stackoverflow.com/questions/52006109/javascript-event-listener-for-alerts-and-confirm-boxes
+ * 
+ */
+
+confirm = function(){
+  return true;
+}

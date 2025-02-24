@@ -104,6 +104,14 @@ var GuidanceConnector = (function() {
                     await stateManager.shouldTransmit(true)
                     
                     payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
+
+                    /**
+                     * To allow the server to initiate requests we need to be able to set the activePathsRequestId from 
+                     * a server given value.
+                     */
+                    if(!await stateManager.exists('activePathsRequestId')){
+                        await stateManager.activePathsRequestId(data['pathsRequestId'])
+                    }
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
                     
                     console.log("Sending transmission started confirmation!")
@@ -146,6 +154,10 @@ var GuidanceConnector = (function() {
             _websocket.addEventListener('message', eventSocket.onMessage)
             _websocket.addEventListener('error', eventSocket.onError)
             //eventSocket.notifyReconnected()
+        }).catch((error)=>{
+            console.log(error)
+            console.log("Error establishing event websocket! Trying again!")
+            //_initWebsocket()
         })
         
     }
@@ -157,8 +169,10 @@ var GuidanceConnector = (function() {
             
             //Set it up on an interval.
             _websocketReconnectionReference = setInterval(()=>{
-                console.log(`[guidanceConnector.js] Checking WebSocket connection... websocket is: ${_websocket} readyState: ${_websocket.readyState}`)
+                console.log(`[guidanceConnector.js] Checking WebSocket connection...`)
                 if(_websocket){ //If there is a non-null websocket object
+                    
+                    console.log(`websocket is: ${_websocket} readyState: ${_websocket.readyState}`)
 
                     switch(_websocket.readyState){
                         case 0:
@@ -193,9 +207,9 @@ var GuidanceConnector = (function() {
         _public.socketPersistence()
     }
 
-    _public.stopEventSocket = function(){
-        eventSocket.cleanup()
-    }
+    // _public.stopEventSocket = function(){
+    //     eventSocket.cleanup()
+    // }
 
     _public.init = function() {
         _cache = [];

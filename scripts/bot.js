@@ -44,24 +44,29 @@ const controlSocket = {
         console.log("Sending execution request")
 
         let payload = await this.makePayload("EXECUTION_REQUEST")
-        payload['target'] = "27669987-9530-4233-baa3-619e61a66b9f"
+        payload['target'] = "d54048ca-eda2-44a9-bd33-f1bcf10cc4cf"
         payload['id'] = await stateManager.activePathsRequestId()
         payload['userLocation'] = await getUserLocation()
         payload['parameters'] = [
             {
-                "id": "f524ee66-3dea-449b-ade5-5bdad5caf77e",
+                "id": "bb56e451-f16a-4615-ae63-907fef86ea98",
                 "type": "InputParameter",
                 "value": "ianta@ualberta.ca"
             },
             {
-                "id": "f450cae3-2c3c-4bde-ac36-2fc88adaf910",
+                "id": "bd17ff65-e7a9-437c-a934-6ec9a4a77fac",
                 "type": "InputParameter",
                 "value": "01134hello"
             },
             {
-                "id": "9f19272c-7748-4c56-af83-e5983ac158b2",
+                "id": "db1f0ecf-95ee-4772-85c3-13b3963d11e1",
                 "type": "SchemaParameter",
-                "query": "World History"
+                "query": "Social Studies"
+            },
+            {
+                "id":"68946e91-ebba-41fc-adf3-47e12c2a4d76",
+                "type": "InputParameter",
+                "value":"Auto Module"
             }
         ]
 

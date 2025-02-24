@@ -253,7 +253,20 @@ function performClick(element){
     const clickEvent = new MouseEvent("click", {
         "view": window,
         "bubbles": true,
-        "cancelable":false
+        /**
+         * It is important that performed clicks are cancelable. 
+         * According to: https://developer.mozilla.org/en-US/docs/Web/API/Event/cancelable
+         * Most events originating from user interactions are cancelable. This allows event handlers to call 'preventDefault()' on
+         * the event. 
+         * 
+         * This is a reasonably common paradigm in UI design, and shows up in Canvas. When you click the edit module button from the 
+         * course home screen you are clicking an <a> tag to the module page of the course. However there is a JQuery component that
+         * preventDefaults() this navigation and instead displays a module edit popup. This is what was captured in the traces. 
+         * 
+         * If cancelable was set to false, the bot would be forced to navigate to the module section thus bringing it off path. 
+         * 
+         */
+        "cancelable":true 
     }) 
 
     element.dispatchEvent(clickEvent);

@@ -60,7 +60,7 @@ var stateManager = (function(){
             boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local' and 'logui'
             guidanceHost: 'localhost:7080', //The host for the guidance service to use with Bot mode.
             activePathsRequestId: undefined,
-            clientId: undefined 
+            clientId: crypto.randomUUID() 
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
