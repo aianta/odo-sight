@@ -6479,6 +6479,80 @@ var LogUI = (function () {
 		'default': scroll
 	});
 
+	var tinyMCE = (function (root) {
+	  var _handler = {};
+
+	  _handler.init = function () {
+	    // Detect presense of TinyMCE 
+	    if (typeof tinymce != "undefined") {
+	      console.log("Detected TinyMCE, instrumenting..."); // Attach event handlers to all available editors.
+
+	      tinymce.editors.forEach(function (editor) {
+	        return editor.on('input', function (event) {
+	          return handleTinyMCEInput(event, editor);
+	        });
+	      });
+	    }
+	  };
+
+	  _handler.stop = function () {
+	    if (typeof tinymce != "undefined") {
+	      console.log("Unregistering tinyMCE listeners"); // Unregister event handlers on all available editors. 
+
+	      tinymce.editors.forEach(function (editor) {
+	        return editor.off('input', function (event) {
+	          return handleTinyMCEInput(event, editor);
+	        });
+	      });
+	    }
+	  };
+
+	  var captureDOMSnapshot = function captureDOMSnapshot() {
+	    var fullHtml = document.documentElement.outerHTML;
+	    var scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi; //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+
+	    var noScripts = fullHtml.replaceAll(scriptRegex, ""); //Clear all scripts.
+
+	    var xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi;
+	    var noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, ""); //Clear all XML character data
+
+	    var styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi;
+	    var noStyle = noXMLCDATA.replaceAll(styleRegex, ""); //Clear all css styles
+
+	    var svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi;
+	    var noSvgPaths = noStyle.replaceAll(svgPathsRegex, ""); //Clear all paths inside SVGs
+
+	    var result = {
+	      outerHTML: noSvgPaths,
+	      outerText: document.documentElement.outerText
+	    };
+	    return JSON.stringify(result);
+	  };
+
+	  var handleTinyMCEInput = function handleTinyMCEInput(event, editor) {
+	    //Package and send object
+	    //TODO: need to get the editor id in here. 
+	    console.log("tinyMCE Event Handler Invoked!");
+	    var eventData = {
+	      name: 'INPUT_CHANGE',
+	      source: 'tinyMCE',
+	      editorId: editor.id,
+	      inputType: event.inputType,
+	      xpath: getElementTreeXPath(editor.contentAreaContainer),
+	      domSnapshot: captureDOMSnapshot(),
+	      value: event.data
+	    };
+	    EventPackager.packageCustomEvent(eventData);
+	  };
+
+	  return _handler;
+	})();
+
+	var _tinyMCE = /*#__PURE__*/Object.freeze({
+		__proto__: null,
+		'default': tinyMCE
+	});
+
 	/*
 	    LogUI Client Library
 	    Browser Events / URL Change Event
@@ -6582,12 +6656,16 @@ var LogUI = (function () {
 	*/
 	var _dirImport$2 = {};
 
-	for (var _key5$2 in _viewportResize) {
-	  _dirImport$2[_key5$2 === 'default' ? "viewportResize" : _key5$2] = _viewportResize[_key5$2];
+	for (var _key6$1 in _viewportResize) {
+	  _dirImport$2[_key6$1 === 'default' ? "viewportResize" : _key6$1] = _viewportResize[_key6$1];
 	}
 
-	for (var _key4$2 in _urlChange) {
-	  _dirImport$2[_key4$2 === 'default' ? "urlChange" : _key4$2] = _urlChange[_key4$2];
+	for (var _key5$2 in _urlChange) {
+	  _dirImport$2[_key5$2 === 'default' ? "urlChange" : _key5$2] = _urlChange[_key5$2];
+	}
+
+	for (var _key4$2 in _tinyMCE) {
+	  _dirImport$2[_key4$2 === 'default' ? "tinyMCE" : _key4$2] = _tinyMCE[_key4$2];
 	}
 
 	for (var _key3$2 in _scroll) {
@@ -6841,7 +6919,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Thu May 23 2024 14:36:49 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Tue Oct 07 2025 14:38:21 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  /* API calls */

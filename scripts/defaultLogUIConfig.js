@@ -12,7 +12,8 @@ const _defaultConfig = {
       URLChanges: false,
       contextMenu: false,
       pageFocus: false,
-      pageResize: false
+      pageResize: false,
+      tinyMCE: true
     },
     trackingConfiguration: {
         'list-item-clicks': {
