@@ -4224,8 +4224,17 @@ var LogUI = (function () {
 	var Dispatcher = (function (root) {
 	  var _public = {};
 	  var _isActive = false;
+	  var _isInIframe = false;
 
 	  _public.dispatcherType = 'odo-sight';
+
+	  _public.iframeInit = function () {
+	    _isInIframe = true;
+	  };
+
+	  _public.isInIfrmae = function () {
+	    return _isInIframe;
+	  };
 
 	  _public.init = function () {
 	    if (!_isActive) {
@@ -4289,8 +4298,16 @@ var LogUI = (function () {
 	        payload: data
 	      });
 	      return;
+	    } else if (_isInIframe) {
+	      var event = new CustomEvent('loguiEvent', {
+	        detail: JSON.parse(JSON.stringify(objectToSend))
+	      });
+	      root.parent.document.dispatchEvent(event);
+	      console.log("Dispatched event from iframe");
+	      return;
 	    }
 
+	    console.log("isActive: ".concat(_isActive, " isInIframe: ").concat(_isInIframe));
 	    throw Error('You cannot send a message when LogUI is not active.');
 	  };
 
@@ -4461,7 +4478,7 @@ var LogUI = (function () {
 
 	var _dom_properties_ext = [].concat(_dom_properties);
 
-	_dom_properties_ext.push('outerHTML', 'outerText');
+	_dom_properties_ext.push('outerHTML', 'outerText', 'checked', 'role', 'disabled', 'placeholder', 'required', 'type', 'name', 'selected', 'label');
 	/**
 	 * An extended list of dom properties to log when including input elements in a custom event.
 	 */
@@ -4507,6 +4524,88 @@ var LogUI = (function () {
 	function _unsupportedIterableToArray$3(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$3(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$3(o, minLen); }
 
 	function _arrayLikeToArray$3(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	var change = (function (root) {
+	  var _handler = {};
+	  _handler.browserEvents = ['change'];
+
+	  _handler.init = function () {
+	    return;
+	  };
+	  /**
+	   * Returns a filtered snapshot of the DOM 
+	   */
+
+
+	  var captureDOMSnapshot = function captureDOMSnapshot() {
+	    var fullHtml = document.documentElement.outerHTML;
+	    var scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi; //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+
+	    var noScripts = fullHtml.replaceAll(scriptRegex, ""); //Clear all scripts.
+
+	    var xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi;
+	    var noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, ""); //Clear all XML character data
+
+	    var styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi;
+	    var noStyle = noXMLCDATA.replaceAll(styleRegex, ""); //Clear all css styles
+
+	    var svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi;
+	    var noSvgPaths = noStyle.replaceAll(svgPathsRegex, ""); //Clear all paths inside SVGs
+
+	    var result = {
+	      outerHTML: noSvgPaths,
+	      outerText: document.documentElement.outerText
+	    };
+	    return JSON.stringify(result);
+	  }; //handle the change event
+
+
+	  _handler.logUIEventCallback = function (eventContext, browserEvent, trackingConfig) {
+	    var returnObject = {
+	      type: browserEvent.type,
+	      xpath: getElementTreeXPath(browserEvent.target),
+	      element: JSON.stringify(browserEvent.target, _dom_properties_ext),
+	      domSnapshot: captureDOMSnapshot()
+	    };
+
+	    if (browserEvent.target.tagName == 'SELECT') {
+	      var options = [];
+
+	      var _iterator = _createForOfIteratorHelper$2(browserEvent.target.children),
+	          _step;
+
+	      try {
+	        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+	          var child = _step.value;
+	          options.push({
+	            xpath: getElementTreeXPath(child),
+	            element: JSON.stringify(child, _dom_properties_ext)
+	          });
+	        }
+	      } catch (err) {
+	        _iterator.e(err);
+	      } finally {
+	        _iterator.f();
+	      }
+
+	      returnObject.options = options;
+	    }
+
+	    return returnObject;
+	  };
+
+	  return _handler;
+	})();
+
+	var _change = /*#__PURE__*/Object.freeze({
+		__proto__: null,
+		'default': change
+	});
+
+	function _createForOfIteratorHelper$3(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$4(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+
+	function _unsupportedIterableToArray$4(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$4(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$4(o, minLen); }
+
+	function _arrayLikeToArray$4(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var click = (function (root) {
 	  var _handler = {};
 	  _handler.browserEvents = ['click']; //This doesn't seem to matter...
@@ -4547,7 +4646,7 @@ var LogUI = (function () {
 	    // https://developer.mozilla.org/en-US/docs/Web/API/Event/composedPath
 	    var eventPath = browserEvent.composedPath(); //Let's compute xpaths for each element
 
-	    var _iterator = _createForOfIteratorHelper$2(eventPath),
+	    var _iterator = _createForOfIteratorHelper$3(eventPath),
 	        _step;
 
 	    try {
@@ -4900,11 +4999,11 @@ var LogUI = (function () {
 		'default': sessionStorage$1
 	});
 
-	function _createForOfIteratorHelper$3(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$4(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$4(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$5(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$4(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$4(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$4(o, minLen); }
+	function _unsupportedIterableToArray$5(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$5(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$5(o, minLen); }
 
-	function _arrayLikeToArray$4(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$5(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 
 	var _dirImport = {};
 
@@ -4973,7 +5072,7 @@ var LogUI = (function () {
 	    var observedNames = [];
 
 	    if (trackingConfig.hasOwnProperty('metadata')) {
-	      var _iterator = _createForOfIteratorHelper$3(trackingConfig.metadata),
+	      var _iterator = _createForOfIteratorHelper$4(trackingConfig.metadata),
 	          _step;
 
 	      try {
@@ -5014,11 +5113,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$4(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$5(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$5(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$6(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$5(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$5(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$5(o, minLen); }
+	function _unsupportedIterableToArray$6(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$6(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$6(o, minLen); }
 
-	function _arrayLikeToArray$5(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$6(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var formSubmission = (function (root) {
 	  var _handler = {};
 	  _handler.browserEvents = ['submit'];
@@ -5052,7 +5151,7 @@ var LogUI = (function () {
 	    var observedNames = [];
 
 	    if (trackingConfigProperties && trackingConfigProperties.hasOwnProperty('includeValues')) {
-	      var _iterator = _createForOfIteratorHelper$4(trackingConfigProperties.includeValues),
+	      var _iterator = _createForOfIteratorHelper$5(trackingConfigProperties.includeValues),
 	          _step;
 
 	      try {
@@ -5153,6 +5252,7 @@ var LogUI = (function () {
 	      element: JSON.stringify(browserEvent.target, _dom_properties_ext),
 	      //The actual input element should include extended properties.
 	      domSnapshot: captureDOMSnapshot(),
+	      checked: browserEvent.target.checked,
 	      validity_badInput: validityState.badInput,
 	      validity_customError: validityState.customError,
 	      validity_patternMismatch: validityState.patternMismatch,
@@ -5168,6 +5268,21 @@ var LogUI = (function () {
 
 	    if (trackingConfig.hasOwnProperty('name')) {
 	      returnObject.name = trackingConfig.name;
+	    } // Grab other inputs with the same name for radio buttons
+
+
+	    if (browserEvent.target.type == "radio") {
+	      var options = [];
+	      console.log("using querySelectior: input[type='radio'][name='".concat(browserEvent.target.name, "']"));
+	      Array.from(document.querySelectorAll("input[type='radio'][name='".concat(browserEvent.target.name, "']"))).forEach(function (e) {
+	        console.log('Got related element!');
+	        options.push({
+	          xpath: getElementTreeXPath(e),
+	          element: JSON.stringify(e, _dom_properties_ext),
+	          checked: e.checked
+	        });
+	      });
+	      returnObject.relatedElements = options;
 	    }
 
 	    return returnObject;
@@ -5446,11 +5561,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$5(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$6(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$6(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$7(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$6(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$6(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$6(o, minLen); }
+	function _unsupportedIterableToArray$7(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$7(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$7(o, minLen); }
 
-	function _arrayLikeToArray$6(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$7(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	RequiredFeatures.addFeature('WeakMap');
 	var DELAY_TIME = 50;
 	var scrollable = (function (root) {
@@ -5467,7 +5582,7 @@ var LogUI = (function () {
 	  };
 
 	  _handler.stop = function () {
-	    var _iterator = _createForOfIteratorHelper$5(globalHandles),
+	    var _iterator = _createForOfIteratorHelper$6(globalHandles),
 	        _step;
 
 	    try {
@@ -5590,32 +5705,36 @@ var LogUI = (function () {
 	*/
 	var _dirImport$1 = {};
 
-	for (var _key6 in _scrollable) {
-	  _dirImport$1[_key6 === 'default' ? "scrollable" : _key6] = _scrollable[_key6];
+	for (var _key7 in _scrollable) {
+	  _dirImport$1[_key7 === 'default' ? "scrollable" : _key7] = _scrollable[_key7];
 	}
 
-	for (var _key5$1 in _sampleEventHandler) {
-	  _dirImport$1[_key5$1 === 'default' ? "sampleEventHandler" : _key5$1] = _sampleEventHandler[_key5$1];
+	for (var _key6 in _sampleEventHandler) {
+	  _dirImport$1[_key6 === 'default' ? "sampleEventHandler" : _key6] = _sampleEventHandler[_key6];
 	}
 
-	for (var _key4$1 in _mouseHover) {
-	  _dirImport$1[_key4$1 === 'default' ? "mouseHover" : _key4$1] = _mouseHover[_key4$1];
+	for (var _key5$1 in _mouseHover) {
+	  _dirImport$1[_key5$1 === 'default' ? "mouseHover" : _key5$1] = _mouseHover[_key5$1];
 	}
 
-	for (var _key3$1 in _mouseClick) {
-	  _dirImport$1[_key3$1 === 'default' ? "mouseClick" : _key3$1] = _mouseClick[_key3$1];
+	for (var _key4$1 in _mouseClick) {
+	  _dirImport$1[_key4$1 === 'default' ? "mouseClick" : _key4$1] = _mouseClick[_key4$1];
 	}
 
-	for (var _key2$1 in _input) {
-	  _dirImport$1[_key2$1 === 'default' ? "input" : _key2$1] = _input[_key2$1];
+	for (var _key3$1 in _input) {
+	  _dirImport$1[_key3$1 === 'default' ? "input" : _key3$1] = _input[_key3$1];
 	}
 
-	for (var _key$1 in _formSubmission) {
-	  _dirImport$1[_key$1 === 'default' ? "formSubmission" : _key$1] = _formSubmission[_key$1];
+	for (var _key2$1 in _formSubmission) {
+	  _dirImport$1[_key2$1 === 'default' ? "formSubmission" : _key2$1] = _formSubmission[_key2$1];
 	}
 
-	for (var key$1 in _click) {
-	  _dirImport$1[key$1 === 'default' ? "click" : key$1] = _click[key$1];
+	for (var _key$1 in _click) {
+	  _dirImport$1[_key$1 === 'default' ? "click" : _key$1] = _click[_key$1];
+	}
+
+	for (var key$1 in _change) {
+	  _dirImport$1[key$1 === 'default' ? "change" : key$1] = _change[key$1];
 	}
 
 	var ImportedEventHandlers = _dirImport$1;
@@ -5866,11 +5985,11 @@ var LogUI = (function () {
 	  return 0;
 	};
 
-	function _createForOfIteratorHelper$6(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$7(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$7(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$8(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$7(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$7(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$7(o, minLen); }
+	function _unsupportedIterableToArray$8(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$8(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$8(o, minLen); }
 
-	function _arrayLikeToArray$7(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$8(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var DOMHandlerHelpers = (function (root) {
 	  var _public = {};
 	  _public.generators = {
@@ -5929,7 +6048,7 @@ var LogUI = (function () {
 	          switch (_context2.prev = _context2.next) {
 	            case 0:
 	              observed = new Map();
-	              _iterator = _createForOfIteratorHelper$6(_public.generators.trackingConfig());
+	              _iterator = _createForOfIteratorHelper$7(_public.generators.trackingConfig());
 	              _context2.prev = 2;
 
 	              _iterator.s();
@@ -5941,7 +6060,7 @@ var LogUI = (function () {
 	              }
 
 	              groupObject = _step.value;
-	              _iterator2 = _createForOfIteratorHelper$6(groupObject.selectedElements);
+	              _iterator2 = _createForOfIteratorHelper$7(groupObject.selectedElements);
 	              _context2.prev = 7;
 
 	              _iterator2.s();
@@ -6021,7 +6140,7 @@ var LogUI = (function () {
 	    if (Config.DOMProperties.has(element)) {
 	      var DOMProperties = Config.DOMProperties.get(element);
 
-	      var _iterator3 = _createForOfIteratorHelper$6(groupObject.eventsList),
+	      var _iterator3 = _createForOfIteratorHelper$7(groupObject.eventsList),
 	          _step3;
 
 	      try {
@@ -6151,16 +6270,16 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$7(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$8(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$8(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$9(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$8(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$8(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$8(o, minLen); }
+	function _unsupportedIterableToArray$9(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$9(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$9(o, minLen); }
 
-	function _arrayLikeToArray$8(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$9(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var Binder = (function (root) {
 	  var _public = {};
 
 	  _public.init = function () {
-	    var _iterator = _createForOfIteratorHelper$7(DOMHandlerHelpers.generators.uniqueElements()),
+	    var _iterator = _createForOfIteratorHelper$8(DOMHandlerHelpers.generators.uniqueElements()),
 	        _step;
 
 	    try {
@@ -6177,7 +6296,7 @@ var LogUI = (function () {
 	  };
 
 	  _public.stop = function () {
-	    var _iterator2 = _createForOfIteratorHelper$7(DOMHandlerHelpers.generators.uniqueElements()),
+	    var _iterator2 = _createForOfIteratorHelper$8(DOMHandlerHelpers.generators.uniqueElements()),
 	        _step2;
 
 	    try {
@@ -6196,7 +6315,7 @@ var LogUI = (function () {
 	  _public.bind = function (element) {
 	    var elementDOMProperties = Config.DOMProperties.get(element);
 
-	    var _iterator3 = _createForOfIteratorHelper$7(elementDOMProperties.getEventList()),
+	    var _iterator3 = _createForOfIteratorHelper$8(elementDOMProperties.getEventList()),
 	        _step3;
 
 	    try {
@@ -6214,7 +6333,7 @@ var LogUI = (function () {
 	  _public.unbind = function (element) {
 	    var elementDOMProperties = Config.DOMProperties.get(element);
 
-	    var _iterator4 = _createForOfIteratorHelper$7(elementDOMProperties.getEventList()),
+	    var _iterator4 = _createForOfIteratorHelper$8(elementDOMProperties.getEventList()),
 	        _step4;
 
 	    try {
@@ -6707,11 +6826,11 @@ var LogUI = (function () {
 	  return _public;
 	})();
 
-	function _createForOfIteratorHelper$8(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$9(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$9(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$a(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$9(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$9(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$9(o, minLen); }
+	function _unsupportedIterableToArray$a(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$a(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$a(o, minLen); }
 
-	function _arrayLikeToArray$9(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$a(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var MutationObserverController = (function (root) {
 	  var _public = {};
 	  var _mutationObserver = null;
@@ -6735,7 +6854,7 @@ var LogUI = (function () {
 	  };
 
 	  var observerCallback = function observerCallback(mutationsList) {
-	    var _iterator = _createForOfIteratorHelper$8(mutationsList),
+	    var _iterator = _createForOfIteratorHelper$9(mutationsList),
 	        _step;
 
 	    try {
@@ -6743,7 +6862,7 @@ var LogUI = (function () {
 	        var record = _step.value;
 
 	        if (record.type == 'childList') {
-	          var _iterator2 = _createForOfIteratorHelper$8(record.addedNodes),
+	          var _iterator2 = _createForOfIteratorHelper$9(record.addedNodes),
 	              _step2;
 
 	          try {
@@ -6782,7 +6901,7 @@ var LogUI = (function () {
 	  var processAddedElement = function processAddedElement(element) {
 	    var shallBind = false;
 
-	    var _iterator3 = _createForOfIteratorHelper$8(DOMHandlerHelpers.generators.trackingConfig()),
+	    var _iterator3 = _createForOfIteratorHelper$9(DOMHandlerHelpers.generators.trackingConfig()),
 	        _step3;
 
 	    try {
@@ -6808,11 +6927,11 @@ var LogUI = (function () {
 	  return _public;
 	})(window);
 
-	function _createForOfIteratorHelper$9(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$a(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+	function _createForOfIteratorHelper$a(o, allowArrayLike) { var it; if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) { if (Array.isArray(o) || (it = _unsupportedIterableToArray$b(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 
-	function _unsupportedIterableToArray$a(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$a(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$a(o, minLen); }
+	function _unsupportedIterableToArray$b(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray$b(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray$b(o, minLen); }
 
-	function _arrayLikeToArray$a(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+	function _arrayLikeToArray$b(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 	var DOMHandler = (function (root) {
 	  var _public = {};
 
@@ -6831,7 +6950,7 @@ var LogUI = (function () {
 	  };
 
 	  var runElementInitialisation = function runElementInitialisation() {
-	    var _iterator = _createForOfIteratorHelper$9(DOMHandlerHelpers.generators.trackingConfig()),
+	    var _iterator = _createForOfIteratorHelper$a(DOMHandlerHelpers.generators.trackingConfig()),
 	        _step;
 
 	    try {
@@ -6919,9 +7038,10 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Tue Oct 07 2025 14:38:21 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Tue Oct 14 2025 15:07:56 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
+	  console.log("Hello from LogUI inside ".concat(root.location, "!"));
 	  /* API calls */
 
 	  _public.init = /*#__PURE__*/function () {
@@ -7000,6 +7120,23 @@ var LogUI = (function () {
 	              throw Error('The LogUI event handler controller component failed to initialise. Check console warnings to see what went wrong.');
 
 	            case 19:
+	              document.addEventListener('loguiEvent', function (event) {
+	                console.log("Relaying event from child iframe! ");
+	                console.log(event);
+	                console.log(event.detail);
+	                Dispatcher.sendObject(event.detail);
+	              }); //root.addEventListener('unload', _public.stop);
+	              //Init any LogUI instances inside same-origin iframes. 
+	              // for (let frame of document.querySelectorAll('iframe')){
+	              //     if (frame.contentWindow.LogUI){ //If there is a LogUI instance defined in this iframe
+	              //         console.log("Attempting to init LogUI inside iframe")
+	              //         console.log(frame.contentWindow.LogUI)
+	              //         //Initalize it with the config object that was given to us.
+	              //         frame.contentWindow.LogUI.iframeInit(suppliedConfigObject)
+	              //     }
+	              // }
+
+	            case 20:
 	            case "end":
 	              return _context.stop();
 	          }
@@ -7009,6 +7146,91 @@ var LogUI = (function () {
 
 	    return function (_x) {
 	      return _ref.apply(this, arguments);
+	    };
+	  }();
+	  /* Author: Alex Ianta
+	  * Date: October 10, 2025
+	  * Adding support for capturing interaction events inside iframes of the parent document.
+	  * 
+	  * Inside an iframe we want to bind to elements and events using the same configuration as LogUI on the parent document.
+	  * However, the eventhandlers here will not invoke a dispatcher but rather simply report their events 
+	  * to LogUI in the parent document. 
+	  * 
+	  * In effect, there is no direct LogUI stop/start inside the iframe, that logic is invoked from the parent window LogUI.
+	  */
+
+
+	  _public.iframeInit = /*#__PURE__*/function () {
+	    var _ref2 = asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee2(suppliedConfigObject) {
+	      return regenerator.wrap(function _callee2$(_context2) {
+	        while (1) {
+	          switch (_context2.prev = _context2.next) {
+	            case 0:
+	              suppliedConfigObject = JSON.parse(suppliedConfigObject); //Pass config via string to avoid permissionn issues?
+
+	              console.log("Initalizing LogUI inside IFrame!");
+
+	              if (suppliedConfigObject) {
+	                _context2.next = 4;
+	                break;
+	              }
+
+	              throw Error('LogUI requires a configuration object to be passed to the init() function.');
+
+	            case 4:
+	              if (Config.init(suppliedConfigObject)) {
+	                _context2.next = 6;
+	                break;
+	              }
+
+	              throw Error('The LogUI configuration component failed to initialise. Check console warnings to see what went wrong.');
+
+	            case 6:
+	              if (MetadataHandler.init()) {
+	                _context2.next = 8;
+	                break;
+	              }
+
+	              throw Error('The LogUI metadata handler component failed to initialise. Check console warnings to see what went wrong.');
+
+	            case 8:
+	              if (SpecificFrameworkEvents.init()) {
+	                _context2.next = 10;
+	                break;
+	              }
+
+	              throw Error('The LogUI events component failed to initialise. Check console warnings to see what went wrong.');
+
+	            case 10:
+	              if (DOMHandler.init()) {
+	                _context2.next = 12;
+	                break;
+	              }
+
+	              throw Error('The LogUI DOMHandler component failed to initialise. Check console warnings to see what went wrong.');
+
+	            case 12:
+	              if (EventHandlerController.init()) {
+	                _context2.next = 14;
+	                break;
+	              }
+
+	              throw Error('The LogUI event handler controller component failed to initialise. Check console warnings to see what went wrong.');
+
+	            case 14:
+	              Dispatcher.iframeInit();
+	              console.log("Finished iframeInit!");
+
+	            case 16:
+	            case "end":
+	              return _context2.stop();
+	          }
+	        }
+	      }, _callee2);
+	    }));
+
+	    return function (_x2) {
+	      return _ref2.apply(this, arguments);
 	    };
 	  }();
 
@@ -7036,13 +7258,13 @@ var LogUI = (function () {
 	    return Config.isActive() && Dispatcher.isActive();
 	  };
 
-	  _public.stop = /*#__PURE__*/asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee2() {
-	    return regenerator.wrap(function _callee2$(_context2) {
+	  _public.stop = /*#__PURE__*/asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee3() {
+	    return regenerator.wrap(function _callee3$(_context3) {
 	      while (1) {
-	        switch (_context2.prev = _context2.next) {
+	        switch (_context3.prev = _context3.next) {
 	          case 0:
 	            if (_public.isActive()) {
-	              _context2.next = 2;
+	              _context3.next = 2;
 	              break;
 	            }
 
@@ -7057,7 +7279,7 @@ var LogUI = (function () {
 	            SpecificFrameworkEvents.stop();
 	            EventPackager.stop();
 	            MetadataHandler.stop();
-	            _context2.next = 10;
+	            _context3.next = 10;
 	            return Dispatcher.stop();
 
 	          case 10:
@@ -7066,10 +7288,10 @@ var LogUI = (function () {
 
 	          case 12:
 	          case "end":
-	            return _context2.stop();
+	            return _context3.stop();
 	        }
 	      }
-	    }, _callee2);
+	    }, _callee3);
 	  }));
 
 	  _public.logCustomMessage = function (messageObject) {

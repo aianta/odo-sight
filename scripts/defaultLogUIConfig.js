@@ -118,6 +118,18 @@ const _defaultConfig = {
             }
           ]
         },
+        'select-data': {
+          selector: 'select',
+          event: 'change',
+          name: 'SELECT',
+          metadata: [
+            {
+              nameForLog: 'idAttribute',
+              sourcer: 'elementAttribute',
+              lookFor: 'id'
+            }
+          ]
+        },
         'input-data': {
             selector: 'input',
             event: 'input',
