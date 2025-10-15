@@ -159,6 +159,11 @@ const guidanceSocket = {
         guidanceSocket.socketPersistence()
     },
     shutdown: function(){
+        if(guidanceSocket.reconnectionReference){
+            clearInterval(guidanceSocket.reconnectionReference)
+            guidanceSocket.reconnectionReference = null;
+        }
+
         guidanceSocket.socket.removeEventListener('close', guidanceSocket.onClose)
         guidanceSocket.socket.removeEventListener('open', guidanceSocket.onOpen)
         guidanceSocket.socket.removeEventListener('message', guidanceSocket.onMessage)
@@ -206,8 +211,12 @@ window.addEventListener("message", (event)=>{
 
 
                 break;
+            case "GUIDANCE_SOCKET_START":
+                initGuidanceSocket();
+                
+                break;
             case "GUIDANCE_SOCKET_STOP":
-                //guidanceSocket.shutdown()
+                guidanceSocket.shutdown()
                 break;
         }
     }
@@ -336,7 +345,7 @@ function initGuidanceSocket(){
     })
 }
 
-initGuidanceSocket();
+//initGuidanceSocket();
 
 function showPathComplete(){
     var sucessDiv = document.createElement("div")

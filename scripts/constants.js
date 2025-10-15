@@ -17,7 +17,7 @@ CONTENT_SCRIPTS_TO_BACKGROUND_PORT_NAME = "content scripts<->background"
 /**
  * Odo Sight state
  */
-_ODO_SIGHT_VALID_STATE_VERISON = "0.1"
+_ODO_SIGHT_VALID_STATE_VERISON = "0.2"
 
 /**
  * Guidance service

@@ -207,9 +207,16 @@ var GuidanceConnector = (function() {
         _public.socketPersistence()
     }
 
-    // _public.stopEventSocket = function(){
-    //     eventSocket.cleanup()
-    // }
+    _public.stopEventSocket = function(){
+        //Disable persistence first
+        if(_websocketReconnectionReference !== null){
+            clearInterval(_websocketReconnectionReference)
+            _websocketReconnectionReference = null;
+        }
+
+        eventSocket.cleanup()
+    }
+
 
     _public.init = function() {
         _cache = [];
@@ -309,6 +316,15 @@ var GuidanceConnector = (function() {
     }
 
     _public.handleStateChange = function(changes){
+
+        if ('guidanceMode' in changes && changes['guidanceMode'].newValue){
+            _public.startEventSocket()
+        }
+
+        if ('guidanceMode' in changes && !changes['guidanceMode'].newValue){
+            _public.stopEventSocket()
+        }
+
         if('activePathsRequestId' in changes){
             console.log(changes)
             console.log("_websocket is: ", _websocket)
@@ -336,4 +352,10 @@ var GuidanceConnector = (function() {
 
 browser.storage.local.onChanged.addListener(GuidanceConnector.handleStateChange)
 
-GuidanceConnector.startEventSocket()
+stateManager.guidanceMode().then(_guidanceMode=>{
+    if(_guidanceMode){
+        GuidanceConnector.startEventSocket()
+    }
+})
+
+

@@ -18,6 +18,8 @@
  * 4) TRACING: This is a manually controlled recording state, for recording traces that are sent to the LOG UI server.
  * Traces recorded in this fashion are used to construct the application model for Odo Bot. 
  * 
+ * OCTOBER 15, 2025 UPDATE: 
+ * 5) GUIDANCE: This mode is active when the user enters bot mode. It ensures that the guidance logic does not attempt to execute while capturing traces. 
  */
 
 var stateManager = (function(){
@@ -60,7 +62,8 @@ var stateManager = (function(){
             boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local' and 'logui'
             guidanceHost: 'localhost:7080', //The host for the guidance service to use with Bot mode.
             activePathsRequestId: undefined,
-            clientId: crypto.randomUUID() 
+            clientId: crypto.randomUUID(),
+            guidanceMode: false 
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
@@ -85,6 +88,13 @@ var stateManager = (function(){
             return _public.get('guidanceHost')
         }
         return _public.set('guidanceHost', data)
+    }
+
+    _public.guidanceMode = function(data){
+        if (data === undefined){
+            return _public.get('guidanceMode')
+        }
+        return _public.set('guidanceMode', data)
     }
 
 

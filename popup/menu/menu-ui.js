@@ -25,4 +25,6 @@ function switchToBotView(){
         popup: '/popup/bot/bot.html'
     })
     window.location.href="/popup/bot/bot.html"
+    //Enable Guidance Mode
+    stateManager.guidanceMode(true)
 }

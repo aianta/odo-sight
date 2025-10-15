@@ -12,6 +12,9 @@ $('#back-to-menu-btn').button({
         popup: '/popup/menu/menu.html'
     })
     window.location.href="/popup/menu/menu.html"
+
+    //Disable guidance mode
+    stateManager.guidanceMode(false)
 })
 
 /**

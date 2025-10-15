@@ -54,11 +54,11 @@ logUIScript.onload = function(){
 };
 
 
-(document.head || document.documentElement).prepend(guidanceScript);
+
 (document.head || document.documentElement).prepend(handlerMagicScript);
 (document.head || document.documentElement).prepend(logUIScript);
 (document.head || document.documentElement).prepend(domeffectsScript);
-
+(document.head || document.documentElement).prepend(guidanceScript);
 
 
 
@@ -84,6 +84,13 @@ function checkState(){
 
 function observeStateChange(changes){
 
+    if('guidanceMode' in changes && !changes['guidanceMode'].newValue){
+        stopGuidanceSocket()
+    }
+
+    if('guidanceMode' in changes  && changes['guidanceMode'].newValue){
+        startGuidanceSocket()
+    }
 
     //If the new 'shouldRecord' value is false, stop the LogUI client
     //This is primarily used by menu-ui.js to stop passive recording or transmitting. 
@@ -113,13 +120,7 @@ function observeStateChange(changes){
         sendCacheOverflowError()
     }
 
-    // if('activePathsRequestId' in changes && changes['activePathsRequestId'].newValue){
-    //     gatherAndSendGuidanceSocketConfig()
-    // }
 
-    // if('activePathsRequestId' in changes && !changes['activePathsRequestId'].newValue){
-    //     stopGuidanceSocket()
-    // }
 }
 
 browser.storage.local.onChanged.addListener(observeStateChange)
@@ -160,7 +161,12 @@ window.addEventListener("message", (event)=>{
             console.log('got config request from guidance.js')
             switch(event.data.type){
                 case "GET_GUIDANCE_SOCKET_CONFIG":
-                    gatherAndSendGuidanceSocketConfig()
+                    //First check if guidance mode is on. 
+                    stateManager.guidanceMode().then(_guidance_mode=>{
+                        if (_guidance_mode){
+                            gatherAndSendGuidanceSocketConfig()
+                        }
+                    })                    
                     break;
             }
         }
@@ -184,6 +190,13 @@ function gatherAndSendGuidanceSocketConfig(){
     },
     err=>console.log('Error while gather guidance socket config: ',err)
 )
+}
+
+function startGuidanceSocket(){
+    window.postMessage({
+        origin: 'main.js',
+        type: 'GUIDANCE_SOCKET_START'
+    })
 }
 
 function stopGuidanceSocket(){

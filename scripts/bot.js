@@ -123,12 +123,7 @@ const controlSocket = {
             controlSocket.socket.send(controlSocket.messageQueue.pop())
         }
 
-        // //Check to see if there is an active paths request if so, notify the server that the controls socket has reconnected
-        // if(await stateManager.exists('activePathsRequestId')){
-        //     controlSocket.notifyReconnected()
 
-            
-        // }
     },
     onError: async function(error){
 
@@ -153,23 +148,31 @@ const controlSocket = {
 
 Promise.all([
     stateManager.boundDispatcher(),
-    stateManager.shouldRecord()
+    stateManager.shouldRecord(),
+    stateManager.guidanceMode()
 ]).then(results=>{
     const boundDispatcher = results[0]
     const shouldRecord = results[1]
+    const _guidanceMode = results[2]
 
+    console.log(`[bot.js] GuidanceMode: ${_guidanceMode}`)
 
-    //Check if the extension is already recording, if not start recording. 
-    if(!shouldRecord){
-        stateManager.set('shouldRecord', true)
+    if (_guidanceMode){ //Only setup the control socket if we are in guidance mode. 
+
+        //Check if the extension is already recording, if not start recording. 
+        if(!shouldRecord){
+            stateManager.set('shouldRecord', true)
+        }
+
+        //Check if the bound disbatcher isn't already set to local or realtime
+        if(boundDispatcher !== 'local' && boundDispatcher !== 'realtime'){
+            stateManager.boundDispatcher('local') //Set it to local
+        }
+
+        initControlSocket()
     }
 
-    //Check if the bound disbatcher isn't already set to local or realtime
-    if(boundDispatcher !== 'local' && boundDispatcher !== 'realtime'){
-        stateManager.boundDispatcher('local') //Set it to local
-    }
 
-    initControlSocket()
 })
 
 function initControlSocket(){
