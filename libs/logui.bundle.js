@@ -5337,6 +5337,8 @@ var LogUI = (function () {
 
 
 	  _handler.logUIEventCallback = function (eventContext, browserEvent, trackingConfig) {
+	    var _browserEvent$target;
+
 	    //Get the root element
 	    var rootElement = browserEvent.composedPath().find(function (e) {
 	      return e.localName === 'html';
@@ -5366,6 +5368,11 @@ var LogUI = (function () {
 
 	    if (trackingConfig.hasOwnProperty('name')) {
 	      returnObject.name = trackingConfig.name;
+	    } //Include the type of the target input element, eg: 'checkbox'
+
+
+	    if ((browserEvent === null || browserEvent === void 0 ? void 0 : (_browserEvent$target = browserEvent.target) === null || _browserEvent$target === void 0 ? void 0 : _browserEvent$target.type) !== undefined) {
+	      returnObject.elementType = browserEvent.target.type;
 	    } // Grab other inputs with the same name for radio buttons
 
 
@@ -6748,16 +6755,19 @@ var LogUI = (function () {
 
 	  var handleTinyMCEInput = function handleTinyMCEInput(event, editor) {
 	    //Package and send object
-	    //TODO: need to get the editor id in here. 
+	    var iframeXpath = getElementTreeXPath(editor.getContentAreaContainer().children[0]);
 	    console.log("tinyMCE Event Handler Invoked!");
 	    var eventData = {
 	      name: 'INPUT_CHANGE',
 	      source: 'tinyMCE',
 	      editorId: editor.id,
 	      inputType: event.inputType,
-	      xpath: getElementTreeXPath(editor.contentAreaContainer),
+	      xpath: iframeXpath,
 	      domSnapshot: captureDOMSnapshot(),
-	      value: event.data
+	      value: event.data,
+	      editorContent: editor.getContent({
+	        format: 'text'
+	      })
 	    };
 	    EventPackager.packageCustomEvent(eventData);
 	  };
@@ -7136,7 +7146,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed Oct 15 2025 12:30:57 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Wed Oct 15 2025 17:19:53 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));
@@ -7224,15 +7234,6 @@ var LogUI = (function () {
 	                console.log(event.detail);
 	                Dispatcher.sendObject(event.detail);
 	              }); //root.addEventListener('unload', _public.stop);
-	              //Init any LogUI instances inside same-origin iframes. 
-	              // for (let frame of document.querySelectorAll('iframe')){
-	              //     if (frame.contentWindow.LogUI){ //If there is a LogUI instance defined in this iframe
-	              //         console.log("Attempting to init LogUI inside iframe")
-	              //         console.log(frame.contentWindow.LogUI)
-	              //         //Initalize it with the config object that was given to us.
-	              //         frame.contentWindow.LogUI.iframeInit(suppliedConfigObject)
-	              //     }
-	              // }
 
 	            case 20:
 	            case "end":
@@ -7340,11 +7341,15 @@ var LogUI = (function () {
 
 	      switch (event.data.type) {
 	        case 'START_LOGUI':
+	          console.log("Starting LogUI, Dispatcher.isInIframe: ".concat(Dispatcher.isInIframe()));
+
 	          _public.init(event.data.config);
 
 	          break;
 
 	        case 'STOP_LOGUI':
+	          console.log("Stopping LogUI, Dispatcher.isInIframe: ".concat(Dispatcher.isInIframe()));
+
 	          _public.stop();
 
 	          break;

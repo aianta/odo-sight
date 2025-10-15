@@ -288,35 +288,42 @@ window.addEventListener('load', function(){
     console.log("Looking for iframes...")
     for (let frame of document.querySelectorAll('iframe')){
         console.log(`Found iframe: ${frame.src}`)
-        const iframeUrl = new URL(frame.src)
+        try{
+            const iframeUrl = new URL(frame.src)
 
 
-        //Only inject into iframes with the same origin to avoid cross-origin errors
-        if (iframeUrl.hostname === window.location.hostname){
+            //Only inject into iframes with the same origin to avoid cross-origin errors
+            if (iframeUrl.hostname === window.location.hostname){
+                
+                const iframeWindow = frame.contentWindow || frame;
+                const iframeDocument = frame.contentDocument || iframeWindow.document;
+                const scriptElement = iframeDocument.createElement('script')
+                scriptElement.src = browser.runtime.getURL('/libs/logui.bundle.js')
+                scriptElement.onload = function(){
+                    console.log('scriptElement onLOAD!')
+                    console.log(frame)
+                    console.log(frame.contentWindow.LogUI)
+                    //Get LogUI config and init the LogUI instance we just injected. 
+                    stateManager.logUIConfig().then(config=>{
+                        
+                        console.log('Calling LogUI.iframeInit() with state manager sourced config.')
+                        
+                        frame.contentWindow.wrappedJSObject.LogUI.iframeInit(JSON.stringify(config))
+                        
+                    })
+                }
+                iframeDocument.documentElement.prepend(scriptElement)
+                console.log(`injected logUI into iframe!`)
+
             
-            const iframeWindow = frame.contentWindow || frame;
-            const iframeDocument = frame.contentDocument || iframeWindow.document;
-            const scriptElement = iframeDocument.createElement('script')
-            scriptElement.src = browser.runtime.getURL('/libs/logui.bundle.js')
-            scriptElement.onload = function(){
-                console.log('scriptElement onLOAD!')
-                console.log(frame)
-                console.log(frame.contentWindow.LogUI)
-                //Get LogUI config and init the LogUI instance we just injected. 
-                stateManager.logUIConfig().then(config=>{
-                    
-                    console.log('Calling LogUI.iframeInit() with state manager sourced config.')
-                    
-                    frame.contentWindow.wrappedJSObject.LogUI.iframeInit(JSON.stringify(config))
-                    
-                })
+
+        }            
+        }catch(error){
+            if (error.name !== 'TypeError'){
+                console.error(error)
             }
-            iframeDocument.documentElement.prepend(scriptElement)
-            console.log(`injected logUI into iframe!`)
-
-            
-
         }
+
 
     }
 
