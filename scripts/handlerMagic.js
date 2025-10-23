@@ -66,3 +66,5 @@ Node.prototype.addEventListener = function(a,b,c){
 confirm = function(){
   return true;
 }
+
+console.log("handlerMagic.js ran")

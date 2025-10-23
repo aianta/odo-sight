@@ -117,6 +117,27 @@ const _defaultConfig = {
             }
           ]
         },
+        'input-clicks': {
+          selector: 'input',
+          event: 'click',
+          name: "INPT_CLICK",
+          metadata: [
+            {
+              nameForLog: 'idAttribute',
+              sourcer: 'elementAttribute',
+              lookFor: 'id'
+            },
+            {
+              nameForLog: 'buttonText',
+              sourcer: 'elementProperty',
+              lookFor: 'innerText'
+            },{
+              nameForLog: 'outerHTML',
+              sourcer: 'elementProperty',
+              lookFor: 'outerHTML'
+            }
+          ]
+        },
         'select-data': {
           selector: 'select',
           event: 'change',

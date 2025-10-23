@@ -7080,12 +7080,18 @@ var LogUI = (function () {
 	        event.editor.on('input', function (inputEvent) {
 	          return handleTinyMCEInput(inputEvent, event.editor);
 	        });
+	        event.editor.on('SetContent', function (contentEvent) {
+	          return handleTinyMCEInput(contentEvent, event.editor);
+	        });
 	      }); // Attach event handlers to all available editors.
 
 	      tinymce.editors.forEach(function (editor) {
 	        console.log("Instrumented tinyMCE editor with id: ".concat(editor.id));
 	        editor.on('input', function (event) {
 	          return handleTinyMCEInput(event, editor);
+	        });
+	        editor.on('SetContent', function (contentEvent) {
+	          return handleTinyMCEInput(contentEvent, editor);
 	        });
 	      });
 	    }
@@ -7096,14 +7102,20 @@ var LogUI = (function () {
 	      console.log("Unregistering tinyMCE listeners");
 	      tinymce.off('AddEditor', function (event) {
 	        console.log("Instrumented tinyMCE editor with id: ".concat(event.editor.id));
-	        event.editor.on('input', function (inputEvent) {
+	        event.editor.off('input', function (inputEvent) {
 	          return handleTinyMCEInput(inputEvent, event.editor);
+	        });
+	        event.editor.off('SetContent', function (contentEvent) {
+	          return handleTinyMCEInput(contentEvent, event.editor);
 	        });
 	      }); // Unregister event handlers on all available editors. 
 
 	      tinymce.editors.forEach(function (editor) {
-	        return editor.off('input', function (event) {
+	        editor.off('input', function (event) {
 	          return handleTinyMCEInput(event, editor);
+	        });
+	        editor.off('SetContent', function (contentEvent) {
+	          return handleTinyMCEInput(contentEvent, editor);
 	        });
 	      });
 	    }
@@ -7140,10 +7152,10 @@ var LogUI = (function () {
 	      source: 'tinyMCE',
 	      editorId: editor.id,
 	      element: JSON.stringify(editor.getContentAreaContainer(), _dom_properties_ext),
-	      inputType: event.inputType,
+	      inputType: event.inputType !== undefined ? event.inputType : 'insertText',
 	      xpath: iframeXpath,
 	      domSnapshot: captureDOMSnapshot(),
-	      value: event.data,
+	      value: event.data !== undefined ? event.data : event.content,
 	      editorContent: editor.getContent({
 	        format: 'text'
 	      })
@@ -7160,7 +7172,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Mon Oct 20 2025 15:33:46 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Thu Oct 23 2025 11:38:03 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));

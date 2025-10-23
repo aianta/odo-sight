@@ -135,11 +135,14 @@ var GuidanceConnector = (function() {
         },
         cleanup: function(){
             console.log('Event socket cleaning up')
-            _websocket.removeEventListener('open', eventSocket.onOpen)
-            _websocket.removeEventListener('close', eventSocket.onClose)
-            _websocket.removeEventListener('message', eventSocket.onMessage)
-            _websocket.removeEventListener('error', eventSocket.onError)
-            _websocket.close()
+            if(_websocket !== null){
+                _websocket.removeEventListener('open', eventSocket.onOpen)
+                _websocket.removeEventListener('close', eventSocket.onClose)
+                _websocket.removeEventListener('message', eventSocket.onMessage)
+                _websocket.removeEventListener('error', eventSocket.onError)
+                _websocket.close()
+            }
+            
             //_websocket === null
         }
     }
@@ -235,6 +238,7 @@ var GuidanceConnector = (function() {
         return stateManager.sessionId(sessionData.sessionID)
         .then(_=>stateManager.sessionData(sessionData)
         .then(_=>stateManager.sessionReady(true)))
+        .then(_=>console.log(`Session data set up! ${sessionData}`))
         
     };
 
@@ -352,10 +356,14 @@ var GuidanceConnector = (function() {
 
 browser.storage.local.onChanged.addListener(GuidanceConnector.handleStateChange)
 
-stateManager.guidanceMode().then(_guidanceMode=>{
-    if(_guidanceMode){
-        GuidanceConnector.startEventSocket()
-    }
-})
+stateManager.guidanceMode()
+    .then(_guidanceMode=>{
+        if(_guidanceMode){
+            GuidanceConnector.startEventSocket()
+        }
+    })
+    .catch(err=>{
+        console.log("[guidanceConnector.js] Tried to check 'guidanceMode' flag before it was defined.")
+    })
 
 

@@ -104,16 +104,21 @@ const guidanceSocket = {
                     switch(data.action){
                         
                         case "input":
-
-                            const inputXpath = data.xpath
-
-                            var targetElement = getElementByXpath(inputXpath)
-
-                            if(targetElement === undefined){
-                                console.log("Could not find element to enter data into")
+                            
+                            //TinyMCE input commands will specify an editor id.
+                            if (data.editorId !== undefined){
+                                performInputTinymce(data.editorId, data.data)
+                            }else{
+                                //Otherwise we're looking for an input element at a specific xpath to enter info into.
+                                const inputXpath = data.xpath
+                                var targetElement = getElementByXpath(inputXpath)
+                                if(targetElement === undefined){
+                                    console.log("Could not find element to enter data into")
+                                }
+                                performInput(targetElement, data.data)
                             }
 
-                            performInput(targetElement, data.data)
+                            
 
                             break;
                         case "queryDom":
@@ -255,6 +260,24 @@ function performInput(element, data ){
 
 }
 
+function performInputTinymce(editorId, data){
+
+    if (typeof tinymce !== 'undefined'){
+        targetEditor = tinymce.editors.find(editor=>editor.id === editorId)
+
+        if (targetEditor === undefined){
+            console.log(`Could not find tinymce editor with id ${editorId}`)
+            return
+        }
+
+        targetEditor.setContent(data)
+
+    }else{
+        console.log("Could not find instance of tinymce to perform requested input. ")
+    }
+
+}
+
 function performClick(element){
     /**
      * https://stackoverflow.com/questions/809057/how-do-i-programmatically-click-on-an-element-in-javascript
@@ -345,7 +368,7 @@ function initGuidanceSocket(){
     })
 }
 
-//initGuidanceSocket();
+initGuidanceSocket();
 
 function showPathComplete(){
     var sucessDiv = document.createElement("div")
@@ -406,9 +429,6 @@ const sheet = new CSSStyleSheet();
 sheet.replaceSync(guidanceStyles)
 document.adoptedStyleSheets.push(sheet)
 
-// var odoStyleSheet = document.createElement("stlye")
-// odoStyleSheet.setAttribute("type", "text/css")
-// odoStyleSheet.textContent = guidanceStyles
-// document.head.appendChild(odoStyleSheet)
+
 
 

@@ -44,29 +44,34 @@ const controlSocket = {
         console.log("Sending execution request")
 
         let payload = await this.makePayload("EXECUTION_REQUEST")
-        payload['target'] = "d54048ca-eda2-44a9-bd33-f1bcf10cc4cf"
+        payload['target'] = "78a0f623-0a70-4573-8303-33002df732b3"
         payload['id'] = await stateManager.activePathsRequestId()
         payload['userLocation'] = await getUserLocation()
         payload['parameters'] = [
             {
-                "id": "bb56e451-f16a-4615-ae63-907fef86ea98",
+                "id": "005a7a59-86ac-438f-9109-c91f47fd3365",
                 "type": "InputParameter",
-                "value": "ianta@ualberta.ca"
+                "value": "alana.mitchell@ualberta.ca"
             },
             {
-                "id": "bd17ff65-e7a9-437c-a934-6ec9a4a77fac",
+                "id": "c6bb0305-b1f0-44be-b26b-64d0249de03a",
                 "type": "InputParameter",
-                "value": "01134hello"
+                "value": "V9rTq#7bP2wL"
+            },
+            // {
+            //     "id": "db1f0ecf-95ee-4772-85c3-13b3963d11e1",
+            //     "type": "SchemaParameter",
+            //     "query": "Social Studies"
+            // },
+            {
+                "id":"8585965f-d21b-4788-a841-39adee03b331",
+                "type": "InputParameter",
+                "value":"Victory Discussion"
             },
             {
-                "id": "db1f0ecf-95ee-4772-85c3-13b3963d11e1",
-                "type": "SchemaParameter",
-                "query": "Social Studies"
-            },
-            {
-                "id":"68946e91-ebba-41fc-adf3-47e12c2a4d76",
+                "id":"52e041d4-7310-4216-8197-a2a360eaf8a1",
                 "type": "InputParameter",
-                "value":"Auto Module"
+                "value":"If you're reading this, it was entered inside a tinyMCE editor and Alex is a god."
             }
         ]
 
@@ -157,20 +162,22 @@ Promise.all([
 
     console.log(`[bot.js] GuidanceMode: ${_guidanceMode}`)
 
-    if (_guidanceMode){ //Only setup the control socket if we are in guidance mode. 
+    if(!_guidanceMode){
+        stateManager.guidanceMode(true)
+    }    
 
-        //Check if the extension is already recording, if not start recording. 
-        if(!shouldRecord){
-            stateManager.set('shouldRecord', true)
-        }
-
-        //Check if the bound disbatcher isn't already set to local or realtime
-        if(boundDispatcher !== 'local' && boundDispatcher !== 'realtime'){
-            stateManager.boundDispatcher('local') //Set it to local
-        }
-
-        initControlSocket()
+    //Check if the extension is already recording, if not start recording. 
+    if(!shouldRecord){
+        stateManager.set('shouldRecord', true)
     }
+
+    //Check if the bound disbatcher isn't already set to local or realtime
+    if(boundDispatcher !== 'local' && boundDispatcher !== 'realtime'){
+        stateManager.boundDispatcher('local') //Set it to local
+    }
+
+    initControlSocket()
+    
 
 
 })
@@ -244,3 +251,4 @@ function getUserLocation(){
             return Promise.resolve(tabs[0].url)
         })
 }
+

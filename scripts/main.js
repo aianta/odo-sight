@@ -83,6 +83,8 @@ function checkState(){
 }
 
 function observeStateChange(changes){
+    console.log("State Change detected:")
+    console.log(changes)
 
     if('guidanceMode' in changes && !changes['guidanceMode'].newValue){
         stopGuidanceSocket()
@@ -100,6 +102,7 @@ function observeStateChange(changes){
 
     //If the new 'sessionReady' value is true, start the LogUI client
     if ('sessionReady' in changes && changes['sessionReady'].newValue){
+        console.log("Got 'sessionReady', checking OdoX state to determine if we should start transmitting...")
         checkState()
     }
 
@@ -166,7 +169,8 @@ window.addEventListener("message", (event)=>{
                         if (_guidance_mode){
                             gatherAndSendGuidanceSocketConfig()
                         }
-                    })                    
+                    })
+                    //gatherAndSendGuidanceSocketConfig()                    
                     break;
             }
         }
@@ -228,6 +232,7 @@ function sendSessionInfo(data){
  * for use in bot mode.
  */
 function startLogUI3(){
+    console.log("Starting LogUI for observing actions in bot mode")
     stateManager.logUIConfig().then(config=>{
         window.postMessage({
             origin: 'main.js',
