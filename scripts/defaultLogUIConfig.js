@@ -118,7 +118,7 @@ const _defaultConfig = {
           ]
         },
         'input-clicks': {
-          selector: 'input',
+          selector: 'input[type="submit"], input[type="button"]',
           event: 'click',
           name: "INPT_CLICK",
           metadata: [

@@ -135,7 +135,13 @@ const guidanceSocket = {
                             break;
                         case "click":
                             console.log("Got click command to execute!")
-                            const clickXpath = data.xpath
+                            var clickXpath = data.xpath
+
+                            if (clickXpath.endsWith('/svg')){
+                                console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
+                                clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
+                                console.log(`Adjusted xpath: ${clickXpath}`)
+                            }
 
                             var targetElement = getElementByXpath(clickXpath)
 

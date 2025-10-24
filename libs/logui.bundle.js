@@ -7159,8 +7159,14 @@ var LogUI = (function () {
 	      editorContent: editor.getContent({
 	        format: 'text'
 	      })
-	    };
-	    EventPackager.packageCustomEvent(eventData);
+	    }; //Don't fire the event if the value/editor content is empty.
+	    //TODO: Conceivably, this would prevent us from capturing interactions where SetContent is used to 'clear' the text box. 
+	    //Will have to think of ways to account for this, possibly by only capturing SetContent during OdoBot's execution mode?
+	    //Anyways, for now, let's just clean it up.
+
+	    if (eventData.editorContent) {
+	      EventPackager.packageCustomEvent(eventData);
+	    }
 	  };
 
 	  return _handler;
@@ -7172,7 +7178,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Thu Oct 23 2025 11:38:03 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Fri Oct 24 2025 11:39:31 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));
