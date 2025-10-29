@@ -5383,11 +5383,14 @@ var LogUI = (function () {
 	        console.log('Got related element!');
 	        options.push({
 	          xpath: getElementTreeXPath(e),
-	          element: JSON.stringify(e, _dom_properties_ext),
-	          checked: e.checked
+	          element: JSON.parse(JSON.stringify(e, _dom_properties_ext)),
+	          checked: e.checked,
+	          value: e.value,
+	          html: e.outerHTML
 	        });
 	      });
-	      returnObject.relatedElements = options;
+	      returnObject.radioGroup = browserEvent.target.name;
+	      returnObject.relatedElements = JSON.stringify(options);
 	    }
 
 	    return returnObject;
@@ -7178,7 +7181,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Fri Oct 24 2025 11:39:31 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Wed Oct 29 2025 10:42:31 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));

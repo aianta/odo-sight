@@ -153,6 +153,15 @@ const guidanceSocket = {
                             console.log("Performing click on target element")
                             performClick(targetElement)
                             break;
+                        case "getUIControlState":
+
+                            let state = getUIControlState(data.xpath, data.uiControlType)
+                            let response = guidanceSocket.makePayload('UI_CONTROL_STATE')
+                            response['pathsRequestId'] = data.pathsRequestId
+                            response['state'] = state
+
+                            guidanceSocket.socket.send(JSON.stringify(response))
+                            break;
 
                     }
 
@@ -232,6 +241,80 @@ window.addEventListener("message", (event)=>{
         }
     }
 })
+
+function getUIControlState(xpath, type){
+
+    const targetElement = getElementByXpath(xpath)
+
+    function blankStateInfo(xpath, type){
+        return {
+            xpath:xpath,
+            type: type
+        }
+    }
+
+    let results = []
+
+    let stateInfo = blankStateInfo(xpath, type)
+    if(targetElement.id){
+        stateInfo.id = targetElement.id
+    }
+
+    switch(type){
+        case "CHECKBOX":
+            stateInfo.checked = targetElement.checked
+            
+            results.push(stateInfo)
+            break;
+        case "TEXT":
+            stateInfo.value = targetElement.value
+            results.push(stateInfo)
+            break;
+        case "RADIO_BUTTON":
+            // For radio buttons, report the state of all the related buttons in the group. 
+            
+            // Get the name of the radio group
+            radioGroupName = targetElement.name
+
+            // Find all radio buttons in this group on the page
+            document.querySelectorAll(`input[name="${radioGroupName}"][type="radio"]`).forEach(radioButton=>{
+                let _state = blankStateInfo(getElementTreeXPath(radioButton), "RADIO_BUTTON")
+                _state.checked = radioButton.checked
+
+                if(radioButton.id){
+                    _state.id = radioButton.id
+                }
+
+                if(radioButton.value){
+                    _state.value = value
+                }
+
+                results.push(_state)
+            })
+
+            break;
+        case "SELECT":
+            stateInfo.value = targetElement.value
+            stateInfo.options = []
+
+            for (let child of targetElement.children){
+                let _option = {
+                    value: child.value,
+                    text: child.innerText
+                }
+                stateInfo.options.push(_option)
+            }
+            results.push(stateInfo)
+            break;
+        case "INPUT_COMBO_BOX":
+            stateInfo.value = targetElement.value
+            results.push(stateInfo)
+            break;
+    }
+
+    return results;
+
+}
 
 function performDomQuery(msg){
     const dynamicXPath = msg.xpath
