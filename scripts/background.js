@@ -157,6 +157,26 @@ function logNetworkRequest(record){
                 }
 
                 for (const [key, value] of Object.entries(record)){
+                    if (key === 'requestBody' && record.requestBody && record.requestBody.raw){
+                        let decoder = new TextDecoder("utf-8")
+                        let _body = ""
+                        for (let part of record.requestBody.raw){
+                            _body += decoder.decode(part.bytes);
+                        }
+                        
+                        try{
+                            let _body_object = JSON.parse(_body)
+                            eventDetails['requestBody'] = JSON.stringify(_body_object)
+
+                        }catch (error){
+                            eventDetails["requestBody"] = _body
+
+                        }
+
+                        continue
+
+                    }
+
                     if(_fields.includes(key)){
                         
                         if(typeof value === 'object'){
