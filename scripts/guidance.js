@@ -7,6 +7,7 @@ const guidanceSocket = {
     clientId: undefined, 
     reconnectionReference: null,
     reconnectionAttempts : 0,
+    promises: new Map(),
     socketPersistence: function(){
         //If the recoonection logic hasn't been set up yet
         if(!guidanceSocket.reconnectionReference){
@@ -68,18 +69,35 @@ const guidanceSocket = {
             console.log('[guidance.js] GuidanceSocket got: ', msg)
             console.log(msg.data)
             const data = JSON.parse(msg.data)
+            
+            let response = undefined; 
 
             switch(data.type){
+                case "ALTERNATE_XPATH_CONFIRMED":
+                    //Look up a promise waiting for this confirmation.
+                    let promiseKey = "REGISTER_ALTERNATE_XPATH,"+ data.alternateXpath
+
+                    let resolve = guidanceSocket.promises.get(promiseKey)
+
+                    if(resolve !== undefined && resolve !== null){
+                        resolve()
+                    }
+
+                    //Remove/Clean-up the promise entry
+                    guidanceSocket.promises.delete(promiseKey)
+
+
+                    break;
                 case "PATH_COMPLETE":
                     clearHighlighting(); 
                     showPathComplete();
-                    var response = guidanceSocket.makePayload("PATH_COMPLETE_ACK")
+                    response = guidanceSocket.makePayload("PATH_COMPLETE_ACK")
                     guidanceSocket.socket.send(JSON.stringify(response))
                     break;
                 case "CLEAR_NAVIGATION_OPTIONS":
                     clearHighlighting();
                     
-                    var response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
+                    response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
                     guidanceSocket.socket.send(JSON.stringify(response))
 
                     break;
@@ -94,7 +112,7 @@ const guidanceSocket = {
                     },3000) //TODO fix this
 
                 
-                    var response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
+                    response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
                     response['pathsRequestId'] = data.pathsRequestId
                     guidanceSocket.socket.send(JSON.stringify(response))
 
@@ -112,10 +130,13 @@ const guidanceSocket = {
                                 //Otherwise we're looking for an input element at a specific xpath to enter info into.
                                 const inputXpath = data.xpath
                                 var targetElement = getElementByXpath(inputXpath)
+
                                 if(targetElement === undefined){
                                     console.log("Could not find element to enter data into")
                                 }
-                                performInput(targetElement, data.data)
+
+                                handleAlternateXpath(targetElement, data)
+                                    .then(_=>performInput(targetElement, data.data))
                             }
 
                             
@@ -126,7 +147,7 @@ const guidanceSocket = {
                             console.log("Got queryDom command!")
                             let queryResults = performDomQuery(data)
                             
-                            var response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
                             response['pathsRequestId'] = data.pathsRequestId
                             response['queryResults'] = queryResults
 
@@ -150,13 +171,16 @@ const guidanceSocket = {
                                 return
                             }
 
-                            console.log("Performing click on target element")
-                            performClick(targetElement)
+                            handleAlternateXpath(targetElement, data).then(_=>{
+                                console.log("Performing click on target element")
+                                performClick(targetElement)
+                            })
+
                             break;
                         case "getUIControlState":
 
                             let state = getUIControlState(data.xpath, data.uiControlType)
-                            let response = guidanceSocket.makePayload('UI_CONTROL_STATE')
+                            response = guidanceSocket.makePayload('UI_CONTROL_STATE')
                             response['pathsRequestId'] = data.pathsRequestId
                             response['state'] = state
 
@@ -316,6 +340,41 @@ function getUIControlState(xpath, type){
 
 }
 
+/**
+ * Sometimes the xpath we actually interact with is not the same as the xpath
+ * the server told us to interact with, in those cases we need to register the new
+ * xpath before we perform the interaction so that the server can pick up on the
+ * fact that we are still following their instructions. 
+ * @param {*} targetElement 
+ * @param {*} instructionData 
+ * @returns 
+ */
+function handleAlternateXpath(targetElement, instructionData){
+    const serverXpath = instructionData.xpath
+    const pathsRequestId = instructionData.pathsRequestId
+    const sourceNodeId = instructionData.sourceNodeId
+    const elementXpath = getElementTreeXPath(targetElement)
+
+    var {promise, resolve, reject} = Promise.withResolvers()
+
+    if (elementXpath !== serverXpath){
+        request = guidanceSocket.makePayload("REGISTER_ALTERNATE_XPATH")
+        request['pathsRequestId'] = pathsRequestId
+        request['sourceNodeId'] = sourceNodeId
+        request['alternateXpath'] = elementXpath
+
+        //Register a promise for this request, so that we can resolve it when a response is recieved in the onMessage() function.
+        guidanceSocket.promises.set("REGISTER_ALTERNATE_XPATH," + alternateXpath, resolve)
+
+        guidanceSocket.socket.send(JSON.stringify(request))
+    }else{
+        resolve()
+    }
+
+    return promise;
+    
+}
+
 function performDomQuery(msg){
     const dynamicXPath = msg.xpath
     console.log("Looking for parent: ", dynamicXPath.prefix)
@@ -329,8 +388,19 @@ function performDomQuery(msg){
                 computedXPath = computedXPath + `[${index+1}]` //Xpaths are 1-indexed, so if the index is 0, the xpath index is 1, and we don't need square brackets. 
             }
             
-            console.log("computed path: ", computedXPath + dynamicXPath.suffix)
-            return {xpath:computedXPath + dynamicXPath.suffix, html: child.outerHTML}
+            let suffix = undefined;
+
+            if(Array.isArray(dynamicXPath.suffix)){
+                suffix = dynamicXPath.suffix[0] //Use the first option. 
+            }else{
+                suffix = dynamicXPath.suffix
+            }
+
+            //Append the '/' if it is missing to ensure the returned xpaths are valid.
+            suffix = suffix.startsWith("/")?suffix:"/"+ suffix;
+
+            console.log("computed path: ", computedXPath + suffix)
+            return {xpath:computedXPath + suffix, html: child.outerHTML}
         })
     
         console.log("Got ", sites.length, " query results!")
@@ -401,7 +471,61 @@ function performClick(element){
  * @returns 
  */
 function getElementByXpath(path) {
-    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    var result = document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+    //Fallback/Recovery logic.
+    //The idea is to start truncating the xpath until we start finding elements.
+    //And then try combinations of the original xpath with different indices on parents.
+    //For example for the path: /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[5]/div/div/
+    //We would want to try paths like: 
+    // /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[1]/div/div/
+    // /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[2]/div/div/
+    // /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[3]/div/div/
+    // /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[...]/div/div/
+
+    if (result == null){
+        to_try = [] //Build up a list of xpaths to try.
+        path_components = path.split("/")
+
+
+        
+        var index = 1
+        while(path_components.length - index >= 3 ){ //xpaths will tend to start with /html/body, if we get to those it's kind of a lost cause.
+            var temp = path_components.slice(0,path_components.length-index).join("/")
+            console.log(`temp: ${temp}`)
+            var element = document.evaluate(temp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+            if(element != null && element.parentElement != null && element.parentElement.children.length > 1){
+
+                var child_index = 0
+                while(child_index < element.parentElement.children.length){
+                    var candidate_xpath = path_components.slice(0, path_components.length - index - 1)
+                    var child = element.parentElement.querySelector(`:nth-child(${child_index + 1})`)
+                    var tagName = (child.prefix ? child.prefix + ":" : "") 
+                                    + child.localName;
+                    candidate_xpath.push(tagName + "["+(child_index + 1)+"]")
+                    candidate_xpath = candidate_xpath.concat(path_components.slice(path_components.length - index + 1))
+                    to_try.push(candidate_xpath.join("/"))
+                    child_index++
+                }
+            }
+            index++
+        }
+
+        console.log(`Given xpath could not be found, computed ${to_try.length} alternate candidates to try.`)
+        console.log(to_try)
+
+        for(alternate_xpath of to_try){
+            result = document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            if (result != null){
+                return result;
+            }
+        }
+        
+
+    }
+
+    return result
 }
 
 function highlightOption(option){
