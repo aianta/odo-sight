@@ -350,13 +350,19 @@ function getUIControlState(xpath, type){
  * @returns 
  */
 function handleAlternateXpath(targetElement, instructionData){
+
+    var {promise, resolve, reject} = Promise.withResolvers()
+    if(targetElement === null){
+        reject("Target Element was null.")
+        return promise
+    }
+
     const serverXpath = instructionData.xpath
     const pathsRequestId = instructionData.pathsRequestId
     const sourceNodeId = instructionData.sourceNodeId
     const elementXpath = getElementTreeXPath(targetElement)
 
-    var {promise, resolve, reject} = Promise.withResolvers()
-
+    
     if (elementXpath !== serverXpath){
         request = guidanceSocket.makePayload("REGISTER_ALTERNATE_XPATH")
         request['pathsRequestId'] = pathsRequestId
@@ -364,7 +370,7 @@ function handleAlternateXpath(targetElement, instructionData){
         request['alternateXpath'] = elementXpath
 
         //Register a promise for this request, so that we can resolve it when a response is recieved in the onMessage() function.
-        guidanceSocket.promises.set("REGISTER_ALTERNATE_XPATH," + alternateXpath, resolve)
+        guidanceSocket.promises.set("REGISTER_ALTERNATE_XPATH," + elementXpath, resolve)
 
         guidanceSocket.socket.send(JSON.stringify(request))
     }else{
@@ -464,6 +470,46 @@ function performClick(element){
     
 }
 
+// Generating XPath
+// https://stackoverflow.com/questions/3454526/how-to-calculate-the-xpath-position-of-an-element-using-javascript
+const getElementTreeXPath = function(element)
+    {
+        var paths = [];  // Use nodeName (instead of localName) 
+        // so namespace prefix is included (if any).
+        for (; element && element.nodeType == Node.ELEMENT_NODE; 
+            element = element.parentNode)
+        {
+            var index = 0;
+            var hasFollowingSiblings = false;
+            for (var sibling = element.previousSibling; sibling; 
+                sibling = sibling.previousSibling)
+            {
+                // Ignore document type declaration.
+                if (sibling.nodeType == Node.DOCUMENT_TYPE_NODE)
+                    continue;
+
+                if (sibling.nodeName == element.nodeName)
+                    ++index;
+            }
+
+            for (var sibling = element.nextSibling; 
+                sibling && !hasFollowingSiblings;
+                sibling = sibling.nextSibling)
+            {
+                if (sibling.nodeName == element.nodeName)
+                    hasFollowingSiblings = true;
+            }
+
+            var tagName = (element.prefix ? element.prefix + ":" : "") 
+                            + element.localName;
+            var pathIndex = (index || hasFollowingSiblings ? "[" 
+                    + (index + 1) + "]" : "");
+            paths.splice(0, 0, tagName + pathIndex);
+        }
+
+        return paths.length ? "/" + paths.join("/") : null;
+    };
+
 /**
  * https://stackoverflow.com/questions/10596417/is-there-a-way-to-get-element-by-xpath-using-javascript-in-selenium-webdriver
  * 
@@ -522,7 +568,7 @@ function getElementByXpath(path) {
             }
         }
         
-
+        console.log(`Could not find element @ xpath ${path} or any alternate xpath`)
     }
 
     return result
