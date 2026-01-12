@@ -137,6 +137,7 @@ const guidanceSocket = {
 
                                 handleAlternateXpath(targetElement, data)
                                     .then(_=>performInput(targetElement, data.data))
+                                    .catch(_=>handleUnresolvableXpath(data))
                             }
 
                             
@@ -171,10 +172,12 @@ const guidanceSocket = {
                                 return
                             }
 
-                            handleAlternateXpath(targetElement, data).then(_=>{
+                            handleAlternateXpath(targetElement, data)
+                            .then(_=>{
                                 console.log("Performing click on target element")
                                 performClick(targetElement)
                             })
+                            .catch(_=>handleUnresolvableXpath(data))
 
                             break;
                         case "getUIControlState":
@@ -338,6 +341,15 @@ function getUIControlState(xpath, type){
 
     return results;
 
+}
+
+function handleUnresolvableXpath(instructionData){
+    request = guidanceSocket.makePayload("UNRESOLVABLE_XPATH")
+    request['pathsRequestId'] = instructionData.pathsRequestId
+    request['sourceNodeId'] = instructionData.sourceNodeId
+    request['xpath'] = instructionData.xpath
+
+    guidanceSocket.socket.send(JSON.stringify(request))
 }
 
 /**
