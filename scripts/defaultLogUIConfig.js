@@ -150,6 +150,28 @@ const _defaultConfig = {
             }
           ]
         },
+        'textarea-data': {
+          selector: 'textarea',
+          event: 'input',
+          name: 'INPUT_CHANGE',
+          metadata: [
+              {
+                nameForLog: 'idAttribute',
+                sourcer: 'elementAttribute',
+                lookFor: 'id'
+              },
+              {
+                nameForLog: 'fieldValue',
+                sourcer: 'elementProperty',
+                lookFor: 'value'
+              },
+              {
+                nameForLog: 'outerHTML',
+                sourcer: 'elementProperty',
+                lookFor: 'outerHTML'
+              }
+          ]
+        },
         'input-data': {
             selector: 'input',
             event: 'input',

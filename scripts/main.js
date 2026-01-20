@@ -14,6 +14,9 @@
  * October 10, 2025 Update
  * Additionally we're going to inject logui.bundle.js into every iframe in the document so that we can capture
  * events from inside them. 
+ * 
+ * January 12, 2026 Update
+ * Actually we're not going to do anything about iframes anymore. Simpler this way.
  */
 var handlerMagicScript = document.createElement('script')
 var logUIScript = document.createElement('script')
@@ -32,8 +35,8 @@ guidanceScript.onload = function(){this.remove();};
 logUIScript.onload = function(){
     //Once loaded in, check to see if we should be recording, if so, start LogUI ASAP
     Promise.all([
-        stateManager.shouldRecord(),
-        stateManager.shouldTrace(),
+        stateManager.shouldRecord(), //The flag set by the extension in bot mode
+        stateManager.shouldTrace(), //The flag set by clicking the record button in sight mode
         stateManager.sessionReady()
     ]).then((values)=>{
         const shouldRecord = values[0]
@@ -44,7 +47,7 @@ logUIScript.onload = function(){
             startLogUI2()
         }
 
-        if(shouldRecord && sessionReady){
+        if(shouldRecord && sessionReady){ 
             startLogUI3()
         }
     })
@@ -284,52 +287,57 @@ function stopLogUI2(){
     })
 }
 
-window.addEventListener('load', function(){
+/**
+ * January 12, 2026 Note: Disabled iframe listening as it may not be necessary and only adds runtime logical complexity.
+ * 
+ */
 
-    /**
-     * Handle injecting logui.bundle.js into all iframes with the same origin in this document.
-     * This needs to be done after the window is loaded so than any iframes are already in. 
-     */
-    console.log("Looking for iframes...")
-    for (let frame of document.querySelectorAll('iframe')){
-        console.log(`Found iframe: ${frame.src}`)
-        try{
-            const iframeUrl = new URL(frame.src)
+// window.addEventListener('load', function(){
+
+//     /**
+//      * Handle injecting logui.bundle.js into all iframes with the same origin in this document.
+//      * This needs to be done after the window is loaded so than any iframes are already in. 
+//      */
+//     console.log("Looking for iframes...")
+//     for (let frame of document.querySelectorAll('iframe')){
+//         console.log(`Found iframe: ${frame.src}`)
+//         try{
+//             const iframeUrl = new URL(frame.src)
 
 
-            //Only inject into iframes with the same origin to avoid cross-origin errors
-            if (iframeUrl.hostname === window.location.hostname){
+//             //Only inject into iframes with the same origin to avoid cross-origin errors
+//             if (iframeUrl.hostname === window.location.hostname){
                 
-                const iframeWindow = frame.contentWindow || frame;
-                const iframeDocument = frame.contentDocument || iframeWindow.document;
-                const scriptElement = iframeDocument.createElement('script')
-                scriptElement.src = browser.runtime.getURL('/libs/logui.bundle.js')
-                scriptElement.onload = function(){
-                    console.log('scriptElement onLOAD!')
-                    console.log(frame)
-                    console.log(frame.contentWindow.LogUI)
-                    //Get LogUI config and init the LogUI instance we just injected. 
-                    stateManager.logUIConfig().then(config=>{
+//                 const iframeWindow = frame.contentWindow || frame;
+//                 const iframeDocument = frame.contentDocument || iframeWindow.document;
+//                 const scriptElement = iframeDocument.createElement('script')
+//                 scriptElement.src = browser.runtime.getURL('/libs/logui.bundle.js')
+//                 scriptElement.onload = function(){
+//                     console.log('scriptElement onLOAD!')
+//                     console.log(frame)
+//                     console.log(frame.contentWindow.LogUI)
+//                     //Get LogUI config and init the LogUI instance we just injected. 
+//                     stateManager.logUIConfig().then(config=>{
                         
-                        console.log('Calling LogUI.iframeInit() with state manager sourced config.')
+//                         console.log('Calling LogUI.iframeInit() with state manager sourced config.')
                         
-                        frame.contentWindow.wrappedJSObject.LogUI.iframeInit(JSON.stringify(config))
+//                         frame.contentWindow.wrappedJSObject.LogUI.iframeInit(JSON.stringify(config))
                         
-                    })
-                }
-                iframeDocument.documentElement.prepend(scriptElement)
-                console.log(`injected logUI into iframe!`)
+//                     })
+//                 }
+//                 iframeDocument.documentElement.prepend(scriptElement)
+//                 console.log(`injected logUI into iframe!`)
 
             
 
-        }            
-        }catch(error){
-            if (error.name !== 'TypeError'){
-                console.error(error)
-            }
-        }
+//         }            
+//         }catch(error){
+//             if (error.name !== 'TypeError'){
+//                 console.error(error)
+//             }
+//         }
 
 
-    }
+//     }
 
-})
+// })
