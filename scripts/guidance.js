@@ -180,6 +180,14 @@ const guidanceSocket = {
                             .catch(_=>handleUnresolvableXpath(data))
 
                             break;
+                        case "getDOMSnapshot":
+
+                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                            response['domSnapshot'] = captureDOMSnapshot()
+                            
+                            guidanceSocket.socket.send(JSON.stringify(response))
+                            break;
+
                         case "getUIControlState":
 
                             let state = getUIControlState(data.xpath, data.uiControlType)
@@ -268,6 +276,26 @@ window.addEventListener("message", (event)=>{
         }
     }
 })
+
+/**
+ * Returns a filtered snapshot of the DOM 
+ */
+const captureDOMSnapshot = function(){
+        //document.querySelectorAll('*').forEach(node=>node.setAttribute('_odo_isHidden', isHidden(node)))
+
+        const fullHtml = document.documentElement.outerHTML
+        const scriptRegex = /<script[\s\S]*?>[\s\S]*?<\/script>/gi //https://stackoverflow.com/questions/16585635/how-to-find-script-tag-from-the-string-with-javascript-regular-expression
+        const noScripts = fullHtml.replaceAll(scriptRegex, "") //Clear all scripts.
+        const xmlCharacterDataRegex = /<!\[CDATA[\s\S]*\]\]>/gi 
+        const noXMLCDATA = noScripts.replaceAll(xmlCharacterDataRegex, "") //Clear all XML character data
+        const styleRegex = /<style[\s\S]*?>[\s\S]*?<\/style>/gi
+        const noStyle = noXMLCDATA.replaceAll(styleRegex, "") //Clear all css styles
+        const svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi
+        const noSvgPaths = noStyle.replaceAll(svgPathsRegex, "") //Clear all paths inside SVGs
+
+        return noSvgPaths
+
+    }
 
 function getUIControlState(xpath, type){
 
@@ -570,11 +598,31 @@ function getElementByXpath(path) {
             index++
         }
 
+        //Also try assembling candidate xpaths by exploiting hopefully similar sub-structures towards the leaves of the DOM
+        var sub_structure_path = ""
+        for(i = path_components.length -1; i >= 0; i--){
+            let curr = path_components[i]
+            if (curr == "body" || curr == "html"){
+                break;
+            }
+            sub_structure_path = "/"+ curr + sub_structure_path
+            
+            let sub_structure_candidate_xpath = "/" + sub_structure_path
+            console.log(sub_structure_candidate_xpath)
+            //Test to see if this resolves to a single elememnt
+            let matches = document.evaluate(sub_structure_candidate_xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength 
+            if(matches == 1){
+                to_try.push(sub_structure_candidate_xpath)
+            }
+        }
+
         console.log(`Given xpath could not be found, computed ${to_try.length} alternate candidates to try.`)
         console.log(to_try)
 
         for(alternate_xpath of to_try){
-            result = document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            console.log(`Trying ${alternate_xpath}`)
+            result = document.evaluate(alternate_xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            console.log(`Result: ${result}`)
             if (result != null){
                 return result;
             }
