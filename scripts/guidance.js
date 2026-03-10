@@ -455,12 +455,27 @@ function performDomQuery(msg){
 }
 
 function performInput(element, data ){
+
+    /**
+     * This is necessary to update input values of elements that are being watched by a react application. If we do not use the native value setter
+     * react will 'revert' the value changes we try to make programatically. 
+     */
+    //https://stackoverflow.com/questions/61107351/simulate-change-event-to-enter-text-into-react-textarea-with-vanilla-js-script
+    if(element.nodeName === "INPUT"){
+        var nativeInputValueSetter  = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set
+        nativeInputValueSetter.call(element, data)
+    } else if(element.nodeName === "TEXTAREA"){
+        var nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set
+        nativeTextAreaValueSetter.call(element, data)
+    } else{
+        element.value = data
+    }
+    
     /**
      * https://stackoverflow.com/questions/61190078/simulating-keypress-into-an-input-field-javascript
      */
-    element.value = data
     element.dispatchEvent(
-        new Event('input', {bubbles: true, cancelable: true})
+        new Event('input', {bubbles: true, cancelable: false})
     )
 
 }
