@@ -421,8 +421,8 @@ function handleAlternateXpath(targetElement, instructionData){
     
 }
 
-function performDomQuery(msg){
-    const dynamicXPath = msg.xpath
+function resolveDynamicXpathSites(dynamicXPath){
+
     console.log("Looking for parent: ", dynamicXPath.prefix)
     let parentElement = getElementByXpath(dynamicXPath.prefix)
 
@@ -452,6 +452,24 @@ function performDomQuery(msg){
         console.log("Got ", sites.length, " query results!")
 
         return sites
+}
+
+function performDomQuery(msg){
+    let dynamicXPaths = msg.xpath
+    
+    if(Array.isArray(dynamicXPaths)){
+        //Handle the case where the queryDom instruction is an array of dynamic xpaths
+        sites = []
+        for (dxpath of dynamicXPaths){
+            sites = sites.concat(resolveDynamicXpathSites(dxpath))
+        }
+
+        return sites
+
+    }else{
+        //Handle the case where the queryDom instruction contains a single dynamic xpath to resolve.
+        return resolveDynamicXpathSites(dynamicXPaths)
+    }
 }
 
 function performInput(element, data ){
