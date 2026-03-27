@@ -69,6 +69,33 @@ const _defaultConfig = {
             }
           ]
         },
+        'span-clicks':{
+          selector: 'span',
+          event: 'click',
+          name: 'SPAN_CLICK', 
+          metadata: [
+            {
+              nameForLog: 'idAttribute',
+              sourcer: 'elementAttribute',
+              lookFor: 'id'
+            },
+            {
+              nameForLog: 'className',
+              sourcer: 'elementProperty',
+              lookFor: 'className'
+            },
+            {
+              nameForLog: 'baseURI',
+              sourcer: 'elementProperty',
+              lookFor: 'baseURI'
+            },
+            {
+              nameForLog: 'nodeName',
+              sourcer: 'elementProperty',
+              lookFor: 'nodeName'
+            }
+          ]
+        },
         'table-data-clicks': {
           selector: 'td', 
           event: 'click',

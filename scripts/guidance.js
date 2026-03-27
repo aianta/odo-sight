@@ -441,9 +441,14 @@ function resolveDynamicXpathSites(dynamicXPath){
             }else{
                 suffix = dynamicXPath.suffix
             }
-
-            //Append the '/' if it is missing to ensure the returned xpaths are valid.
-            suffix = suffix.startsWith("/")?suffix:"/"+ suffix;
+            
+            if(suffix !== undefined){
+                //Append the '/' if it is missing to ensure the returned xpaths are valid.
+                suffix = suffix.startsWith("/")?suffix:"/"+ suffix;
+            }else{
+                suffix = ""
+            }
+            
 
             console.log("computed path: ", computedXPath + suffix)
             return {xpath:computedXPath + suffix, html: child.outerHTML}
@@ -460,7 +465,7 @@ function performDomQuery(msg){
     if(Array.isArray(dynamicXPaths)){
         //Handle the case where the queryDom instruction is an array of dynamic xpaths
         sites = []
-        for (dxpath of dynamicXPaths){
+        for (let dxpath of dynamicXPaths){
             sites = sites.concat(resolveDynamicXpathSites(dxpath))
         }
 
