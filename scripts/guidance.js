@@ -151,6 +151,7 @@ const guidanceSocket = {
                             response = guidanceSocket.makePayload('EXECUTION_RESULT')
                             response['pathsRequestId'] = data.pathsRequestId
                             response['queryResults'] = queryResults
+                            response['sourceNodeId'] = data.sourceNodeId
 
                             guidanceSocket.socket.send(JSON.stringify(response))
 
@@ -296,6 +297,13 @@ const captureDOMSnapshot = function(){
         return noSvgPaths
 
     }
+
+const captureCleanElementHTML = function(element){
+    const fullHtml = element.outerHTML
+    const svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi
+    const noSvgPaths = fullHtml.replaceAll(svgPathsRegex, "") //Clear all paths inside SVGs
+    return noSvgPaths
+}
 
 function getUIControlState(xpath, type){
 
@@ -451,7 +459,7 @@ function resolveDynamicXpathSites(dynamicXPath){
             
 
             console.log("computed path: ", computedXPath + suffix)
-            return {xpath:computedXPath + suffix, html: child.outerHTML}
+            return {xpath:computedXPath + suffix, html: captureCleanElementHTML(child)}
         })
     
         console.log("Got ", sites.length, " query results!")
@@ -588,6 +596,65 @@ const getElementTreeXPath = function(element)
         return paths.length ? "/" + paths.join("/") : null;
     };
 
+/*
+    Another get element by xpath  function, with a simpler recovery approach that prioritizes xpath candidates that differ minimally from the indices in the original xpath. 
+*/
+function getElementByXpathV2(path){
+    console.log(`looking for ${path}`)
+    var result = document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+    if (result == null){
+
+        var alternate_candidates = []
+        //https://stackoverflow.com/questions/2295657/return-positions-of-a-regex-match-in-javascript
+        //Should it be a + instead of a * here? hmmmm....
+        var index_re = /(?<=\[)[0-9]*(?=\])/dg
+        while((match = index_re.exec(path)) != null){
+            let xpathElementIndex = parseInt(match[0])
+            let starting_index = match.indices[0][0]
+            let ending_index = match.indices[0][1]
+
+            //starting_index - 1 because the match starts at the number [number] and we need to account for the '['
+            let xpath_leading_up_to_match = path.substring(0,starting_index-1)
+            let element_at_partial_xpath = document.evaluate(xpath_leading_up_to_match, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
+            if(element_at_partial_xpath != null && element_at_partial_xpath.parentElement != null){
+                let parent = element_at_partial_xpath.parentElement
+                let numChildren = parent.children.length
+                let cursor = 1
+                while(cursor <= numChildren){
+                    let candidate = path.substring(0,starting_index)
+                    candidate += cursor
+                    candidate += path.substring(ending_index)
+                    let indexDelta = Math.abs(xpathElementIndex - cursor);
+                    let something = document.evaluate(candidate, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    console.log(`candidate xpath: ${[candidate, indexDelta]}`)
+                    if(something != null){ 
+                        console.log(`candidate xpath: ${[candidate, indexDelta]}`)
+                        console.log(something)
+                    }
+                    
+                    //An index delta of 0, suggests there is no change between the candidate and the original xpath, so no point in including such a candidate.
+                    if(indexDelta > 0 && something != null){
+                        alternate_candidates.push([candidate, indexDelta])
+                    }
+                    
+                    cursor++
+                }
+
+            }
+        }
+
+        alternate_candidates.sort((a,b)=>a[1]-b[1])
+        
+        while(result == null && alternate_candidates.length !== 0){
+            result = document.evaluate(alternate_candidates.shift()[0], document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+        }
+    }
+
+    return result;
+}
+
 /**
  * https://stackoverflow.com/questions/10596417/is-there-a-way-to-get-element-by-xpath-using-javascript-in-selenium-webdriver
  * 
@@ -608,6 +675,13 @@ function getElementByXpath(path) {
     // /html/body/div[4]/div[2]/div/div[2]/div[1]/div/div/div[...]/div/div/
 
     if (result == null){
+
+        //First try a simpler recovery mechanism
+        result = getElementByXpathV2(path)
+        if(result != null){
+            return result
+        }
+
         to_try = [] //Build up a list of xpaths to try.
         path_components = path.split("/")
 
@@ -629,6 +703,7 @@ function getElementByXpath(path) {
                                     + child.localName;
                     candidate_xpath.push(tagName + "["+(child_index + 1)+"]")
                     candidate_xpath = candidate_xpath.concat(path_components.slice(path_components.length - index + 1))
+                    console.log(`candidate xpath: ${candidate_xpath.join("/")}`)
                     to_try.push(candidate_xpath.join("/"))
                     child_index++
                 }
