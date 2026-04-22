@@ -516,6 +516,11 @@ function performInputTinymce(editorId, data){
     if (typeof tinymce !== 'undefined'){
         targetEditor = tinymce.editors.find(editor=>editor.id === editorId)
 
+        //Try and fallback on the active editor.
+        if (targetEditor === undefined && tinymce.activeEditor !== undefined){
+            targetEditor = tinymce.activeEditor
+        }
+
         if (targetEditor === undefined){
             console.log(`Could not find tinymce editor with id ${editorId}`)
             return
