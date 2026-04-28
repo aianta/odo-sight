@@ -191,9 +191,10 @@ const guidanceSocket = {
 
                         case "getUIControlState":
 
-                            let state = getUIControlState(data.xpath, data.uiControlType)
-                            response = guidanceSocket.makePayload('UI_CONTROL_STATE')
+                            let state = getUIControlState(data.xpath, data.uiControlType, data.editorId)
+                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
                             response['pathsRequestId'] = data.pathsRequestId
+                            response['uiControlType'] = data.uiControlType
                             response['state'] = state
 
                             guidanceSocket.socket.send(JSON.stringify(response))
@@ -305,9 +306,25 @@ const captureCleanElementHTML = function(element){
     return noSvgPaths
 }
 
-function getUIControlState(xpath, type){
+function getUIControlState(xpath, type, editorId){
+    var targetElement = undefined
 
-    const targetElement = getElementByXpath(xpath)
+    //Handle the case where we're looking for the text state of a tinymce widget
+    if(editorId !== undefined && typeof tinymce !== 'undefined'){
+        targetElement = tinymce.editors.find(e=>e.id === editorId)
+
+        if (targetElement === undefined && tinymce.activeEditor !== undefined){
+            targetElement = tinymce.activeEditor
+        }
+
+        if(targetElement === undefined){
+            console.log(`Could not find tinymce editor with id ${editorId}`)
+            return undefined
+        }
+    }else{
+        targetElement = getElementByXpath(xpath)
+    }
+    
 
     function blankStateInfo(xpath, type){
         return {
@@ -333,6 +350,10 @@ function getUIControlState(xpath, type){
             stateInfo.value = targetElement.value
             results.push(stateInfo)
             break;
+        case "TINY_MCE_EDITOR":
+            stateInfo.value = targetElement.getContent({format: "text"})
+            results.push(stateInfo)
+            break;
         case "RADIO_BUTTON":
             // For radio buttons, report the state of all the related buttons in the group. 
             
@@ -349,9 +370,10 @@ function getUIControlState(xpath, type){
                 }
 
                 if(radioButton.value){
-                    _state.value = value
+                    _state.value = radioButton.value
                 }
-
+                
+                _state.radioGroupName = radioGroupName
                 results.push(_state)
             })
 

@@ -237,6 +237,7 @@ function sendSessionInfo(data){
 function startLogUI3(){
     console.log("Starting LogUI for observing actions in bot mode")
     stateManager.logUIConfig().then(config=>{
+        config.odoSettings.captureSetContent = true
         window.postMessage({
             origin: 'main.js',
             type: 'START_LOGUI',
@@ -265,6 +266,7 @@ function startLogUI2(){
 
         config.logUIConfiguration.authorisationToken = flightAuthToken
         config.logUIConfiguration.endpoint = endpoint
+        config.odoSettings.captureSetContent = false
 
         window.postMessage({
             origin: 'main.js',

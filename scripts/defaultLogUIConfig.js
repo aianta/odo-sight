@@ -4,6 +4,9 @@ const _defaultConfig = {
         authorisationToken: '',
         verbose: true
     },
+    odoSettings: {
+      captureSetContent: false
+    },
     applicationSpecificData: {
         userID: 123,
     },

@@ -3968,6 +3968,7 @@ var LogUI = (function () {
 	var Config = (function (root) {
 	  var _public = {};
 	  var _initTimestamp = null;
+	  var _odoSettings = {};
 	  var _sessionData = null;
 	  var _applicationSpecificData = {};
 	  var _trackingConfig = {};
@@ -4004,6 +4005,11 @@ var LogUI = (function () {
 	    _applicationSpecificData = suppliedConfigObject.applicationSpecificData;
 	    _trackingConfig = suppliedConfigObject.trackingConfiguration;
 	    _browserEvents = suppliedConfigObject.browserEvents;
+
+	    if (suppliedConfigObject.odoSettings !== undefined) {
+	      _odoSettings = suppliedConfigObject.odoSettings;
+	    }
+
 	    return true;
 	  };
 
@@ -4014,6 +4020,7 @@ var LogUI = (function () {
 	    _applicationSpecificData = {};
 	    _trackingConfig = {};
 	    _browserEvents = {};
+	    _odoSettings = {};
 
 	    _public.CSSRules.reset();
 	  };
@@ -4082,6 +4089,11 @@ var LogUI = (function () {
 	  // };
 
 
+	  _public.odoSettings = {
+	    get: function get() {
+	      return _odoSettings;
+	    }
+	  };
 	  _public.applicationSpecificData = {
 	    get: function get() {
 	      return _applicationSpecificData;
@@ -7076,16 +7088,20 @@ var LogUI = (function () {
 	  _handler.init = function () {
 	    // Detect presense of TinyMCE 
 	    if (typeof tinymce != "undefined") {
-	      console.log("Detected TinyMCE, instrumenting..."); //Attach event handlers to any editors that will be created for this instance of tinymce
+	      console.log("Detected TinyMCE, instrumenting...");
+	      var odoSettings = Config.odoSettings.get(); //Attach event handlers to any editors that will be created for this instance of tinymce
 
 	      tinymce.on('AddEditor', function (event) {
 	        console.log("Instrumented tinyMCE editor with id: ".concat(event.editor.id));
 	        event.editor.on('input', function (inputEvent) {
 	          return handleTinyMCEInput(inputEvent, event.editor);
 	        });
-	        event.editor.on('SetContent', function (contentEvent) {
-	          return handleTinyMCEInput(contentEvent, event.editor);
-	        });
+
+	        if (odoSettings.captureSetContent) {
+	          event.editor.on('SetContent', function (contentEvent) {
+	            return handleTinyMCEInput(contentEvent, event.editor);
+	          });
+	        }
 	      }); // Attach event handlers to all available editors.
 
 	      tinymce.editors.forEach(function (editor) {
@@ -7093,9 +7109,12 @@ var LogUI = (function () {
 	        editor.on('input', function (event) {
 	          return handleTinyMCEInput(event, editor);
 	        });
-	        editor.on('SetContent', function (contentEvent) {
-	          return handleTinyMCEInput(contentEvent, editor);
-	        });
+
+	        if (odoSettings.captureSetContent) {
+	          editor.on('SetContent', function (contentEvent) {
+	            return handleTinyMCEInput(contentEvent, editor);
+	          });
+	        }
 	      });
 	    }
 	  };
@@ -7103,23 +7122,30 @@ var LogUI = (function () {
 	  _handler.stop = function () {
 	    if (typeof tinymce != "undefined") {
 	      console.log("Unregistering tinyMCE listeners");
+	      var odoSettings = Config.odoSettings.get();
 	      tinymce.off('AddEditor', function (event) {
 	        console.log("Instrumented tinyMCE editor with id: ".concat(event.editor.id));
 	        event.editor.off('input', function (inputEvent) {
 	          return handleTinyMCEInput(inputEvent, event.editor);
 	        });
-	        event.editor.off('SetContent', function (contentEvent) {
-	          return handleTinyMCEInput(contentEvent, event.editor);
-	        });
+
+	        if (odoSettings.captureSetContent) {
+	          event.editor.off('SetContent', function (contentEvent) {
+	            return handleTinyMCEInput(contentEvent, event.editor);
+	          });
+	        }
 	      }); // Unregister event handlers on all available editors. 
 
 	      tinymce.editors.forEach(function (editor) {
 	        editor.off('input', function (event) {
 	          return handleTinyMCEInput(event, editor);
 	        });
-	        editor.off('SetContent', function (contentEvent) {
-	          return handleTinyMCEInput(contentEvent, editor);
-	        });
+
+	        if (odoSettings.captureSetContent) {
+	          editor.off('SetContent', function (contentEvent) {
+	            return handleTinyMCEInput(contentEvent, editor);
+	          });
+	        }
 	      });
 	    }
 	  };
@@ -7181,7 +7207,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed Oct 29 2025 10:42:31 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Tue Apr 28 2026 12:45:19 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));
