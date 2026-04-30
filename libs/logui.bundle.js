@@ -4688,7 +4688,7 @@ var LogUI = (function () {
 	          var child = _step.value;
 	          options.push({
 	            xpath: getElementTreeXPath(child),
-	            element: JSON.stringify(child, _dom_properties_ext)
+	            element: JSON.parse(JSON.stringify(child, _dom_properties_ext))
 	          });
 	        }
 	      } catch (err) {
@@ -4697,7 +4697,11 @@ var LogUI = (function () {
 	        _iterator.f();
 	      }
 
-	      returnObject.options = options;
+	      returnObject.options = JSON.stringify(options);
+	    }
+
+	    if (trackingConfig.hasOwnProperty('name')) {
+	      returnObject.name = trackingConfig.name;
 	    }
 
 	    return returnObject;
@@ -7207,7 +7211,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Tue Apr 28 2026 12:45:19 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Wed Apr 29 2026 14:18:07 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));

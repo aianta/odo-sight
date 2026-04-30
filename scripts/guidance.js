@@ -143,6 +143,20 @@ const guidanceSocket = {
                             
 
                             break;
+
+                        case "selectOption":
+                            
+                            var targetElement = getElementByXpath(data.xpath)
+                            
+                            if(targetElement === undefined){
+                                console.log("Could not find element from which to select option")
+                            }
+                            handleAlternateXpath(targetElement, data)
+                            .then(_=>performSelect(targetElement, data.value))
+                            .catch(_=>handleUnresolvableXpath(data))
+                            
+
+                            break;
                         case "queryDom":
                             
                             console.log("Got queryDom command!")
@@ -554,6 +568,11 @@ function performInputTinymce(editorId, data){
         console.log("Could not find instance of tinymce to perform requested input. ")
     }
 
+}
+
+function performSelect(element, value){
+    element.value = value
+    element.dispatchEvent(new Event('change'))
 }
 
 function performClick(element){
