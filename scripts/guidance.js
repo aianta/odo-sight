@@ -160,14 +160,20 @@ const guidanceSocket = {
                         case "queryDom":
                             
                             console.log("Got queryDom command!")
-                            let queryResults = performDomQuery(data)
-                            
-                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                            response['pathsRequestId'] = data.pathsRequestId
-                            response['queryResults'] = queryResults
-                            response['sourceNodeId'] = data.sourceNodeId
 
-                            guidanceSocket.socket.send(JSON.stringify(response))
+                            //Wait a bit before executing a queryDom to give the underlying application a chance to settle any DOM changes. 
+                            setTimeout(()=>{
+                                let queryResults = performDomQuery(data)
+                            
+                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                                response['pathsRequestId'] = data.pathsRequestId
+                                response['queryResults'] = queryResults
+                                response['sourceNodeId'] = data.sourceNodeId
+
+                                guidanceSocket.socket.send(JSON.stringify(response))
+                            }, 5000)
+
+                            
 
                             break;
                         case "click":
