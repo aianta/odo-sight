@@ -73,37 +73,43 @@ $('#new-flight-btn').click(function(event){
 
 function handleJWTError(err){
 
-    if(err.code === 'ERR_NETWORK'){ //This can happen if the LogUI server is using a self-signed certificate. 
-        //If it is a self signed cert problem, display a link leading to an https page for the logUI server,
-        //and prompt the user to click it and accept the cert. 
-        const selfSignedLinkTarget = `${_LOG_UI_PROTOCOL}://${_LOG_UI_SERVER_HOST}`
+    if(err.code === 'ERR_NETWORK'){ 
         
-        //Hide the main frame
-        $('#main-frame').addClass('hidden').removeClass('visible')
-
-        //Generate the https link
-        $('#self-signed-link')
-            .attr('href', selfSignedLinkTarget)
-            .attr('target', '_blank')
-            .text(selfSignedLinkTarget)
-        
-        //Display the error message
-        $('#self-signed-ssl-msg-box')
-            .removeClass('hidden')
-            .addClass('visible')
-
-        //Set a time out to hide the error message and display the main frame
-        setTimeout(()=>{
-            //Display the main frame again. 
-            $('#main-frame').addClass('visible').removeClass('hidden')
+        stateManager.host().then(logUIHost=>{
+            //This can happen if the LogUI server is using a self-signed certificate. 
+            //If it is a self signed cert problem, display a link leading to an https page for the logUI server,
+            //and prompt the user to click it and accept the cert. 
+            const selfSignedLinkTarget = `${_LOG_UI_PROTOCOL}://${logUIHost}`
             
+            //Hide the main frame
+            $('#main-frame').addClass('hidden').removeClass('visible')
+
+            //Generate the https link
+            $('#self-signed-link')
+                .attr('href', selfSignedLinkTarget)
+                .attr('target', '_blank')
+                .text(selfSignedLinkTarget)
+            
+            //Display the error message
             $('#self-signed-ssl-msg-box')
-                .removeClass('visible')
-                .addClass('hidden')
-            
-            
-        }, 20000) //20 seconds.
+                .removeClass('hidden')
+                .addClass('visible')
 
+            //Set a time out to hide the error message and display the main frame
+            setTimeout(()=>{
+                //Display the main frame again. 
+                $('#main-frame').addClass('visible').removeClass('hidden')
+                
+                $('#self-signed-ssl-msg-box')
+                    .removeClass('visible')
+                    .addClass('hidden')
+                
+                
+            }, 20000) //20 seconds.
+
+        })
+
+        
     }
 }
 

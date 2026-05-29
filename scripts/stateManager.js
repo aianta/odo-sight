@@ -57,6 +57,7 @@ var stateManager = (function(){
             flightAuthToken: undefined, 
             eventCacheOverflow: false,
             pageOrigin: undefined, 
+            host: undefined, //LogUI Server host
             username: undefined, //LogUI Server username
             password: undefined, //LogUI Server password
             boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local' and 'logui'
@@ -137,6 +138,14 @@ var stateManager = (function(){
             return _public.get('selectedFlight')
         }
         return _public.set('selectedFlight', flight)
+    }
+
+    _public.host = function(host){
+        console.log('updating host to ', host)
+        if(host === undefined){
+            return _public.get('host')
+        }
+        return _public.set('host', host)
     }
 
     _public.username = function(username){

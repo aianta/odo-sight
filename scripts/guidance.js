@@ -118,51 +118,50 @@ const guidanceSocket = {
 
                     break;
                 case "EXECUTE":
-                    
-                    switch(data.action){
-                        
-                        case "input":
-                            
-                            //TinyMCE input commands will specify an editor id.
-                            if (data.editorId !== undefined){
-                                performInputTinymce(data.editorId, data.data)
-                            }else{
-                                //Otherwise we're looking for an input element at a specific xpath to enter info into.
-                                const inputXpath = data.xpath
-                                var targetElement = getElementByXpath(inputXpath)
 
-                                if(targetElement === undefined){
-                                    console.log("Could not find element to enter data into")
+                    
+                        switch(data.action){
+                            
+                            case "input":
+                                
+                                //TinyMCE input commands will specify an editor id.
+                                if (data.editorId !== undefined){
+                                    performInputTinymce(data.editorId, data.data)
+                                }else{
+                                    //Otherwise we're looking for an input element at a specific xpath to enter info into.
+                                    const inputXpath = data.xpath
+                                    var targetElement = getElementByXpath(inputXpath)
+
+                                    if(targetElement === undefined){
+                                        console.log("Could not find element to enter data into")
+                                    }
+
+                                    handleAlternateXpath(targetElement, data)
+                                        .then(_=>performInput(targetElement, data.data))
+                                        .catch(_=>handleUnresolvableXpath(data))
                                 }
 
+                                
+
+                                break;
+
+                            case "selectOption":
+                                
+                                var targetElement = getElementByXpath(data.xpath)
+                                
+                                if(targetElement === undefined){
+                                    console.log("Could not find element from which to select option")
+                                }
                                 handleAlternateXpath(targetElement, data)
-                                    .then(_=>performInput(targetElement, data.data))
-                                    .catch(_=>handleUnresolvableXpath(data))
-                            }
+                                .then(_=>performSelect(targetElement, data.value))
+                                .catch(_=>handleUnresolvableXpath(data))
+                                
 
-                            
+                                break;
+                            case "queryDom":
+                                
+                                console.log("Got queryDom command!")
 
-                            break;
-
-                        case "selectOption":
-                            
-                            var targetElement = getElementByXpath(data.xpath)
-                            
-                            if(targetElement === undefined){
-                                console.log("Could not find element from which to select option")
-                            }
-                            handleAlternateXpath(targetElement, data)
-                            .then(_=>performSelect(targetElement, data.value))
-                            .catch(_=>handleUnresolvableXpath(data))
-                            
-
-                            break;
-                        case "queryDom":
-                            
-                            console.log("Got queryDom command!")
-
-                            //Wait a bit before executing a queryDom to give the underlying application a chance to settle any DOM changes. 
-                            setTimeout(()=>{
                                 let queryResults = performDomQuery(data)
                             
                                 response = guidanceSocket.makePayload('EXECUTION_RESULT')
@@ -171,56 +170,59 @@ const guidanceSocket = {
                                 response['sourceNodeId'] = data.sourceNodeId
 
                                 guidanceSocket.socket.send(JSON.stringify(response))
-                            }, 5000)
+                                
 
-                            
+                                
 
-                            break;
-                        case "click":
-                            console.log("Got click command to execute!")
-                            var clickXpath = data.xpath
+                                break;
+                            case "click":
+                                console.log("Got click command to execute!")
+                                var clickXpath = data.xpath
 
-                            if (clickXpath.endsWith('/svg')){
-                                console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
-                                clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
-                                console.log(`Adjusted xpath: ${clickXpath}`)
-                            }
+                                if (clickXpath.endsWith('/svg')){
+                                    console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
+                                    clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
+                                    console.log(`Adjusted xpath: ${clickXpath}`)
+                                }
 
-                            var targetElement = getElementByXpath(clickXpath)
+                                var targetElement = getElementByXpath(clickXpath)
 
-                            if(targetElement === undefined){
-                                console.log("Could not find element to click!")
-                                return
-                            }
+                                if(targetElement === undefined){
+                                    console.log("Could not find element to click!")
+                                    return
+                                }
 
-                            handleAlternateXpath(targetElement, data)
-                            .then(_=>{
-                                console.log("Performing click on target element")
-                                performClick(targetElement)
-                            })
-                            .catch(_=>handleUnresolvableXpath(data))
+                                handleAlternateXpath(targetElement, data)
+                                .then(_=>{
+                                    console.log("Performing click on target element")
+                                    performClick(targetElement)
+                                })
+                                .catch(_=>handleUnresolvableXpath(data))
 
-                            break;
-                        case "getDOMSnapshot":
+                                break;
+                            case "getDOMSnapshot":
 
-                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                            response['domSnapshot'] = captureDOMSnapshot()
-                            
-                            guidanceSocket.socket.send(JSON.stringify(response))
-                            break;
+                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                                response['domSnapshot'] = captureDOMSnapshot()
+                                
+                                guidanceSocket.socket.send(JSON.stringify(response))
+                                break;
 
-                        case "getUIControlState":
+                            case "getUIControlState":
 
-                            let state = getUIControlState(data.xpath, data.uiControlType, data.editorId)
-                            response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                            response['pathsRequestId'] = data.pathsRequestId
-                            response['uiControlType'] = data.uiControlType
-                            response['state'] = state
+                                let state = getUIControlState(data.xpath, data.uiControlType, data.editorId)
+                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
+                                response['pathsRequestId'] = data.pathsRequestId
+                                response['uiControlType'] = data.uiControlType
+                                response['state'] = state
 
-                            guidanceSocket.socket.send(JSON.stringify(response))
-                            break;
+                                guidanceSocket.socket.send(JSON.stringify(response))
+                                break;
 
-                    }
+                        }
+                    
+                    
+                    
 
 
                     break;

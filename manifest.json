@@ -5,7 +5,7 @@
     "description": "Loads LogUI, dom-effects.js and provides additional supporting functionality for odo bot to map out an application.",
     "content_scripts": [
         {
-            "matches": ["*://localhost/*"],
+            "matches": ["*://localhost/*", "*://host.docker.internal/*"],
             "js": [
                 "scripts/globalThis.js",
                 "/scripts/constants.js",
@@ -13,7 +13,6 @@
                 "scripts/main.js"
             ],
             "run_at": "document_start"
-            
         }
     ],
     "permissions": [
@@ -55,7 +54,7 @@
             "/libs/logui.bundle.js",
             "/libs/dom-effects.js"
         ],
-          "matches": [ "*://localhost/*" ]
+          "matches": [ "*://localhost/*", "*://host.docker.internal/*" ]
         }],
     "browser_specific_settings": {
         "gecko":{
