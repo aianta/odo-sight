@@ -164,14 +164,10 @@ axios.interceptors.request.use(function(request){
             //Embed the jwt token in the request header.
             return stateManager.jwt().then( //First attempt to get the JWT from the extension state
                 function(jwt){
-                    console.log('here')
                     request.headers.Authorization = `jwt ${jwt}`
-                    request.headers.Custom = `hola`
-                    console.log(`request.headers.Authorization: ${request.headers.Authorization}`)
                     return Promise.resolve(request)
                 },
                 _=>services.getJWT(_LOG_UI_DEFAULT_USERNAME,_LOG_UI_DEFAULT_PASSWORD).then(function(jwt){ //But if it doesn't exist there, go fetch it from the LogUI server.
-                    console.log('or here')
                     request.headers.Authorization = `jwt ${jwt}`
                     return Promise.resolve(request)
                 },
