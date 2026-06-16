@@ -105,7 +105,7 @@ var services = (function(){
         .catch(_=>Promise.reject("No selected flight, cannot fetch token!"))
         .then(function(flight){
             
-            stateManager.host().then(logUIHost=>{
+            return stateManager.host().then(logUIHost=>{
                 return axios.get(`${_LOG_UI_PROTOCOL}://${logUIHost}${_LOG_UI_FLIGHT_TOKEN_PATH(flight.id)}`)
                 .then(function(response){
                     // stateManager.flightAuthToken(response.data.flightAuthorisationToken)
