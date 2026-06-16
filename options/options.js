@@ -28,6 +28,7 @@ function saveOptions(e){
 
 
     stateManager.host(document.querySelector("#logui-server-host").value)
+    stateManager.guidanceHost(document.querySelector("#guidance-host").value)
     stateManager.username(document.querySelector("#logui-server-username").value)
     stateManager.password(document.querySelector('#logui-server-password').value)
     stateManager.endpoint(document.querySelector('#logui-server-endpoint').value)
@@ -40,6 +41,7 @@ function saveOptions(e){
 function loadOptions(){
 
     stateManager.host().then((host)=>{document.querySelector("#logui-server-host").value = host}, _=>{document.querySelector("#logui-server-host").value = ''})
+    stateManager.guidanceHost().then((guidanceHost)=>{document.querySelector("#guidance-host").value = guidanceHost},  _=>{document.querySelector("#guidance-host").value = ''})
     stateManager.username().then((username)=>{document.querySelector("#logui-server-username").value = username},_=>{document.querySelector("#logui-server-username").value = ''})
     stateManager.password().then((password)=>{document.querySelector('#logui-server-password').value = password},_=>{document.querySelector('#logui-server-password').value = ''})
     stateManager.endpoint().then((endpoint)=>{document.querySelector('#logui-server-endpoint').value = endpoint},_=>{document.querySelector('#logui-server-endpoint').value = ''})
