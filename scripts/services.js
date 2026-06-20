@@ -176,6 +176,8 @@ axios.interceptors.request.use(function(request){
             .catch(function(err){
                 console.error("Tried to make authorized call to LogUI server but didn't have JWT token available!", err)
             });
+        }else{
+            return Promise.resolve(request)
         }
 
     })
