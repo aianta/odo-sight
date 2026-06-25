@@ -478,6 +478,10 @@ function resolveDynamicXpathSites(dynamicXPath){
     console.log("Looking for parent: ", dynamicXPath.prefix)
     let parentElement = getElementByXpath(dynamicXPath.prefix)
 
+    if (parentElement == null){
+        return []
+    }
+
     let sites = [...parentElement.childNodes].filter(child=>child.localName === dynamicXPath.dynamicTag)
         .map((child, index)=>{
             let computedXPath = `${dynamicXPath.prefix}/${dynamicXPath.dynamicTag}`
