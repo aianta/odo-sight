@@ -52,6 +52,7 @@ var GuidanceConnector = (function() {
             _websocket.send(JSON.stringify(payload))
         },
         sendEvent: async function(event){
+            console.log(`sending event: ${event}`)
             const payload = await this.makePayload('EVENT')
             payload['pathsRequestId'] = await stateManager.activePathsRequestId()
             payload['event'] = event

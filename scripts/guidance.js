@@ -162,7 +162,7 @@ const guidanceSocket = {
                                 
                                 console.log("Got queryDom command!")
 
-                                let queryResults = performDomQuery(data)
+                                let queryResults = await performDomQuery(data)
                             
                                 response = guidanceSocket.makePayload('EXECUTION_RESULT')
                                 response['pathsRequestId'] = data.pathsRequestId
@@ -325,7 +325,11 @@ const captureCleanElementHTML = function(element){
     const fullHtml = element.outerHTML
     const svgPathsRegex = /<path[\s\S]*?>[\s\S]*?<\/path>/gi
     const noSvgPaths = fullHtml.replaceAll(svgPathsRegex, "") //Clear all paths inside SVGs
-    return noSvgPaths
+    const noCSSClassesRegex = /\bclass=["']([^"']*)["']/gi
+    const noCSSClasses = noSvgPaths.replaceAll(noCSSClassesRegex, "")
+    const noAttributesExceptRegex = /(?<![\w-])(?!(?:value|type|option|placeholder|name|aria-label|id|action|alt|checked|for|form|href|title)\b)([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi
+    const noAttributesExcept = noCSSClasses.replaceAll(noAttributesExceptRegex, "")
+    return noAttributesExcept
 }
 
 function getUIControlState(xpath, type, editorId){
@@ -365,6 +369,7 @@ function getUIControlState(xpath, type, editorId){
     switch(type){
         case "CHECKBOX":
             stateInfo.checked = targetElement.checked
+            stateInfo.html = targetElement.outerHTML
             
             results.push(stateInfo)
             break;
@@ -473,7 +478,51 @@ function handleAlternateXpath(targetElement, instructionData){
     
 }
 
-function resolveDynamicXpathSites(dynamicXPath){
+function hasScrollableParent(element) {
+  let parent = element.parentElement;
+  
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    const overflowY = style.overflowY;
+    const isScrollableType = overflowY === 'auto' || overflowY === 'scroll';
+    const hasScrollableHeight = parent.scrollHeight > parent.clientHeight;
+    
+    if (isScrollableType && hasScrollableHeight) {
+      return parent; // Found the active scrollable container
+    }
+    parent = parent.parentElement;
+  }
+  return undefined; 
+}
+
+function _scrollToEndOrMax(element, maxScrolls, resolve){
+    if(element != undefined && maxScrolls > 0 && element.scrollHeight > element.clientHeight){
+           
+                let amountToScroll = element.scrollHeight - element.clientHeight
+                element.scrollBy(0, amountToScroll)
+
+                setTimeout(()=>{
+                    _scrollToEndOrMax(element, maxScrolls-1, resolve)
+                },1000)
+
+            
+    }else{
+        resolve()
+    }
+}
+
+function scrollToEndOrMax(element, maxScrolls){
+
+    let done = new Promise((resolve, reject)=>{
+        _scrollToEndOrMax(element, maxScrolls, resolve)
+    })
+
+    return done
+    
+
+}
+
+async function resolveDynamicXpathSites(dynamicXPath){
 
     console.log("Looking for parent: ", dynamicXPath.prefix)
     let parentElement = getElementByXpath(dynamicXPath.prefix)
@@ -481,6 +530,10 @@ function resolveDynamicXpathSites(dynamicXPath){
     if (parentElement == null){
         return []
     }
+
+    //Collections of related elements sometimes load in a paginated fashion, attempt to detect this and include all elements if possible.
+    let scrollableAncestor = hasScrollableParent(parentElement)
+    await scrollToEndOrMax(scrollableAncestor, 10)
 
     let sites = [...parentElement.childNodes].filter(child=>child.localName === dynamicXPath.dynamicTag)
         .map((child, index)=>{
@@ -507,7 +560,21 @@ function resolveDynamicXpathSites(dynamicXPath){
             
 
             console.log("computed path: ", computedXPath + suffix)
-            return {xpath:computedXPath + suffix, html: captureCleanElementHTML(child)}
+            let targetElementAtSuffixXpath = computedXPath + suffix
+
+            let childResult = {xpath:computedXPath + suffix, html: captureCleanElementHTML(child)}
+
+            let targetElementAtSuffix = getElementByXpath(targetElementAtSuffixXpath)
+            if(targetElementAtSuffix != undefined){
+
+                if(targetElementAtSuffix.tagName === 'INPUT' && targetElementAtSuffix.type === "checkbox"){
+                    childResult.checked = targetElementAtSuffix.checked
+                    childResult.checkboxHTML = captureCleanElementHTML(targetElementAtSuffix)
+                }
+
+            }
+
+            return childResult
         })
     
         console.log("Got ", sites.length, " query results!")
@@ -515,21 +582,21 @@ function resolveDynamicXpathSites(dynamicXPath){
         return sites
 }
 
-function performDomQuery(msg){
+async function performDomQuery(msg){
     let dynamicXPaths = msg.xpath
     
     if(Array.isArray(dynamicXPaths)){
         //Handle the case where the queryDom instruction is an array of dynamic xpaths
         sites = []
         for (let dxpath of dynamicXPaths){
-            sites = sites.concat(resolveDynamicXpathSites(dxpath))
+            sites = sites.concat(await resolveDynamicXpathSites(dxpath))
         }
 
         return sites
 
     }else{
         //Handle the case where the queryDom instruction contains a single dynamic xpath to resolve.
-        return resolveDynamicXpathSites(dynamicXPaths)
+        return await resolveDynamicXpathSites(dynamicXPaths)
     }
 }
 
