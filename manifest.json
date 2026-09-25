@@ -22,7 +22,8 @@
         "webRequest",
         "webRequestBlocking",
         "webRequestFilterResponse",
-        "webNavigation"
+        "webNavigation",
+        "clipboardWrite"
     ],
     "background":{
         "scripts": [
