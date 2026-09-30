@@ -139,7 +139,7 @@ browser.storage.local.onChanged.addListener(observeStateChange)
  * Handle the two kinds of messages main.js gets from logui.bundle.js.
  * 
  * 1) GET_SESSION_INFO -> here main.js needs to fetch the session info from the extensions state and pass it back to logui.bundle.js
- * 2) LOGUI_EVENT -> this is just a LogUI event that has been captured by the client, it must be relayed to background.js 
+ * 2) LOGUI_EVENT -> this is a LogUI event that has been captured by the client, it must be relayed to background.js 
  */
 window.addEventListener("message", (event)=>{
     if(event.source === window &&

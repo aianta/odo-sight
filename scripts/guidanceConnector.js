@@ -91,6 +91,25 @@ var GuidanceConnector = (function() {
                     _websocket.send(JSON.stringify(payload))
                     _cache = [] //Clear the cache/localContext
                     break
+                case "GET_SCREENSHOT":
+
+                    payload = await eventSocket.makePayload('SCREENSHOT')
+                    
+                    browser.windows.getCurrent()
+                        .then(currentWindow=>browser.tabs.captureVisibleTab(
+                            currentWindow.id,
+                            {
+                                format: 'png'
+                            }
+                        )).then(imageUrl=>fetch(imageUrl).then(response=>response.arrayBuffer()))
+                        .then(imageBytes=>new Uint8Array(imageBytes).toBase64)
+                        .then(base64Screenshot=>{
+                            payload['screenshot'] = base64Screenshot
+                            _websocket.send(JSON.stringify(payload))
+                        })
+
+
+                    break;
                 case "PATH_COMPLETE":
                     
                     await stateManager.shouldTransmit(false)
@@ -101,20 +120,30 @@ var GuidanceConnector = (function() {
 
                     break
                 case "START_TRANSMISSION":
-                    _transmit = true
-                    await stateManager.shouldTransmit(true)
-                    
-                    payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
-
                     /**
-                     * To allow the server to initiate requests we need to be able to set the activePathsRequestId from 
-                     * a server given value.
+                     * To allow the server to initiate requests we need to be able to set the activePathsRequestId from
+                     * a server given value. This has to happen before any event is sent, since sending an event reads it.
                      */
                     if(!await stateManager.exists('activePathsRequestId')){
                         await stateManager.activePathsRequestId(data['pathsRequestId'])
                     }
+
+                    /**
+                     * The first event the server receives after transmission starts is an Observation carrying the
+                     * local context. Taking the cache, queueing the Observation and switching transmission on happen
+                     * in one synchronous step, so no event is lost from the cache or sent ahead of the Observation.
+                     */
+                    const observationSent = eventSocket.sendEvent(_public.packageObservation(_cache))
+                        .catch(err=>console.error("[guidanceConnector.js] Failed to send the Observation", err))
+                    _cache = [] //Clear the cache/localContext
+                    _transmit = true
+                    await stateManager.shouldTransmit(true)
+
+                    payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
                     payload['pathsRequestId'] = await stateManager.activePathsRequestId()
-                    
+
+                    await observationSent
+
                     console.log("Sending transmission started confirmation!")
 
                     _websocket.send(JSON.stringify(payload))
@@ -260,7 +289,22 @@ var GuidanceConnector = (function() {
         if(objectToSend.sessionID === _sessionID){
 
             if(_transmit){
-                eventSocket.sendEvent(objectToSend)
+                
+                //Capture screenshot for interaction events.
+                if(objectToSend.eventType === "interactionEvent"){
+                    browser.windows.getCurrent()
+                    .then(currentWindow=>browser.tabs.captureVisibleTab(currentWindow.id, {format: 'png'}))
+                    .then(imageUrl=>fetch(imageUrl).then(response=>response.arrayBuffer()))
+                    .then(imageBytes=>new Uint8Array(imageBytes).toBase64())
+                    .then(base64Screenshot=>{
+                        objectToSend.eventDetails.screenshot = base64Screenshot
+                        eventSocket.sendEvent(objectToSend)
+                    })
+                }else{
+                    eventSocket.sendEvent(objectToSend)
+                }
+
+                
             }else{
                 _cache.push(objectToSend);
                 console.log("cache size: ", _cache.length)
@@ -300,6 +344,22 @@ var GuidanceConnector = (function() {
         }
 
 
+    }
+
+    /**
+     * An Observation tells the server what the page looked like when transmission started. For now it carries the
+     * local context: the events recorded before transmission started.
+     */
+    _public.packageObservation = function(localContext){
+        let packageObject = _public.getBasicPackageObject()
+
+        packageObject.eventType = 'customEvent'
+        packageObject.eventDetails = {
+            name: 'OBSERVATION',
+            localContext: localContext
+        }
+
+        return packageObject
     }
 
     _public.getBasicPackageObject = function(){

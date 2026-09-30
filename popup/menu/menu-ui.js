@@ -14,7 +14,7 @@ $('#screenshot-btn').button({
             currentWindow.id,
             {
                 format: 'png',
-                scale: 2
+                scale: 1
             }
         ).then(image=>{
             console.log(typeof image)

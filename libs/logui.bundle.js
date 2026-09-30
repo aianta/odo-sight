@@ -5622,7 +5622,21 @@ var LogUI = (function () {
 	    var packageObject = getBasicPackageObject();
 	    packageObject.eventType = 'interactionEvent';
 	    packageObject.eventDetails = eventDetails;
-	    packageObject.metadata = MetadataHandler.getMetadata(element, trackingConfig);
+	    packageObject.metadata = MetadataHandler.getMetadata(element, trackingConfig); //Get bounding box info
+
+	    var _boundingBox = element.getBoundingClientRect();
+
+	    var boundingBox = {
+	      x: _boundingBox.x,
+	      y: _boundingBox.y,
+	      width: _boundingBox.width,
+	      height: _boundingBox.height,
+	      top: _boundingBox.top,
+	      right: _boundingBox.right,
+	      bottom: _boundingBox.bottom,
+	      left: _boundingBox.left
+	    };
+	    packageObject.eventDetails.boundingBox = boundingBox;
 	    Dispatcher.sendObject(packageObject);
 	  };
 
@@ -7211,7 +7225,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Wed Apr 29 2026 14:18:07 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Mon Sep 28 2026 15:14:22 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));

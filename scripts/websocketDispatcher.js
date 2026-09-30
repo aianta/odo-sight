@@ -83,8 +83,32 @@ var LogUIDispatcher = (function() {
 
     _public.sendObject = function(objectToSend) {
         if (_public.isActive()) {
-            _cache.push(objectToSend);
 
+            if(objectToSend.eventType === "interactionEvent"){
+                browser.windows.getCurrent()
+                    .then(currentWindow=>browser.tabs.captureVisibleTab(
+                        currentWindow.id,
+                        {
+                            format: 'png',
+                            scale: 1
+                        }
+                    ))
+                    .then(imageurl=>{
+                        console.log(`image url: ${imageurl}`)
+                        return imageurl
+                    })
+                    .then(dataurl=>fetch(dataurl).then(response=>response.arrayBuffer()))
+                    .then(imageBytes=>{
+                        console.log(`Size: ${(imageBytes.byteLength/1024).toFixed(2)} KB`);
+                        return new Uint8Array(imageBytes).toBase64()
+                    })
+                    .then(base64Screenshot=>{
+                        objectToSend.eventDetails.screenshot = base64Screenshot
+                        _cache.push(objectToSend)
+                    });
+            }else{
+                _cache.push(objectToSend);
+            }
 
             if (_cache.length >= _cacheSize) {
                 _flushCache();
