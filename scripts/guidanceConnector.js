@@ -38,6 +38,33 @@ var GuidanceConnector = (function() {
 
     _public.dispatcherType = 'guidance';
 
+    /**
+     * Captures the visible part of the active tab of the current window.
+     * @returns {Promise<{screenshot: string, url: string}>} the screenshot as a base64 encoded PNG, and the tab's url as shown in the
+     * address bar.
+     */
+    var _captureActiveTab = async function(){
+        const currentWindow = await browser.windows.getCurrent({populate: true})
+        const imageUrl = await browser.tabs.captureVisibleTab(currentWindow.id, {format: 'png'})
+        const imageBytes = await fetch(imageUrl).then(response=>response.arrayBuffer())
+        const activeTab = currentWindow.tabs.find(tab=>tab.active)
+        return {
+            screenshot: new Uint8Array(imageBytes).toBase64(),
+            url: activeTab?.url
+        }
+    }
+
+    /**
+     * Whether an event gets a screenshot: interaction events, and TinyMCE edits, which LogUI sends as INPUT_CHANGE custom events.
+     */
+    var _hasScreenshot = function(objectToSend){
+        if(objectToSend.eventType === 'interactionEvent'){
+            return true
+        }
+        const details = objectToSend.eventDetails
+        return objectToSend.eventType === 'customEvent' && details?.name === 'INPUT_CHANGE' && details?.source === 'tinyMCE'
+    }
+
     var eventSocket = {
         
         makePayload: async function(type){
@@ -83,30 +110,18 @@ var GuidanceConnector = (function() {
             const data = JSON.parse(msg.data)
             let payload = null
             switch(data.type){
-                case "GET_LOCAL_CONTEXT":
-                    payload = await eventSocket.makePayload('LOCAL_CONTEXT')
-                    payload['localContext'] = _cache
-                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
-
-                    _websocket.send(JSON.stringify(payload))
-                    _cache = [] //Clear the cache/localContext
-                    break
                 case "GET_SCREENSHOT":
 
                     payload = await eventSocket.makePayload('SCREENSHOT')
-                    
-                    browser.windows.getCurrent()
-                        .then(currentWindow=>browser.tabs.captureVisibleTab(
-                            currentWindow.id,
-                            {
-                                format: 'png'
-                            }
-                        )).then(imageUrl=>fetch(imageUrl).then(response=>response.arrayBuffer()))
-                        .then(imageBytes=>new Uint8Array(imageBytes).toBase64)
-                        .then(base64Screenshot=>{
-                            payload['screenshot'] = base64Screenshot
+
+                    //OdoBot asks for a screenshot once the page has settled after an uncharted step.
+                    _captureActiveTab()
+                        .then(({screenshot, url})=>{
+                            payload['screenshot'] = screenshot
+                            payload['userLocation'] = url
                             _websocket.send(JSON.stringify(payload))
                         })
+                        .catch(err=>console.error("[guidanceConnector.js] Failed to capture a screenshot", err))
 
 
                     break;
@@ -129,13 +144,19 @@ var GuidanceConnector = (function() {
                     }
 
                     /**
-                     * The first event the server receives after transmission starts is an Observation carrying the
-                     * local context. Taking the cache, queueing the Observation and switching transmission on happen
-                     * in one synchronous step, so no event is lost from the cache or sent ahead of the Observation.
+                     * The first event the server receives after transmission starts is an Observation of the page. The tab is
+                     * captured first. Then queueing the Observation, clearing the cache and switching transmission on happen in
+                     * one synchronous step, so no event is sent ahead of the Observation.
                      */
-                    const observationSent = eventSocket.sendEvent(_public.packageObservation(_cache))
+                    const observation = await _captureActiveTab()
+                        .then(({screenshot, url})=>_public.packageObservation(url, screenshot))
+                        .catch(err=>{
+                            console.error("[guidanceConnector.js] Failed to capture the tab for the Observation", err)
+                            return _public.packageObservation(undefined, undefined)
+                        })
+                    const observationSent = eventSocket.sendEvent(observation)
                         .catch(err=>console.error("[guidanceConnector.js] Failed to send the Observation", err))
-                    _cache = [] //Clear the cache/localContext
+                    _cache = [] //Events recorded before transmission started are not sent.
                     _transmit = true
                     await stateManager.shouldTransmit(true)
 
@@ -290,16 +311,14 @@ var GuidanceConnector = (function() {
 
             if(_transmit){
                 
-                //Capture screenshot for interaction events.
-                if(objectToSend.eventType === "interactionEvent"){
-                    browser.windows.getCurrent()
-                    .then(currentWindow=>browser.tabs.captureVisibleTab(currentWindow.id, {format: 'png'}))
-                    .then(imageUrl=>fetch(imageUrl).then(response=>response.arrayBuffer()))
-                    .then(imageBytes=>new Uint8Array(imageBytes).toBase64())
-                    .then(base64Screenshot=>{
-                        objectToSend.eventDetails.screenshot = base64Screenshot
-                        eventSocket.sendEvent(objectToSend)
+                //Capture a screenshot for interaction events and TinyMCE edits.
+                if(_hasScreenshot(objectToSend)){
+                    _captureActiveTab()
+                    .then(({screenshot})=>{
+                        objectToSend.eventDetails.screenshot = screenshot
                     })
+                    .catch(err=>console.error("[guidanceConnector.js] Failed to capture a screenshot, sending the event without one", err))
+                    .then(()=>eventSocket.sendEvent(objectToSend))
                 }else{
                     eventSocket.sendEvent(objectToSend)
                 }
@@ -347,16 +366,20 @@ var GuidanceConnector = (function() {
     }
 
     /**
-     * An Observation tells the server what the page looked like when transmission started. For now it carries the
-     * local context: the events recorded before transmission started.
+     * The Observation that tells the server what the page looked like when transmission started. OdoBot makes the observations of
+     * uncharted steps itself, from GET_SCREENSHOT.
+     * @param userLocation the url in the address bar.
+     * @param screenshot a base64 encoded PNG of the visible part of the page.
      */
-    _public.packageObservation = function(localContext){
+    _public.packageObservation = function(userLocation, screenshot){
         let packageObject = _public.getBasicPackageObject()
 
         packageObject.eventType = 'customEvent'
         packageObject.eventDetails = {
             name: 'OBSERVATION',
-            localContext: localContext
+            trigger: 'START_TRANSMISSION',
+            userLocation: userLocation,
+            screenshot: screenshot
         }
 
         return packageObject
