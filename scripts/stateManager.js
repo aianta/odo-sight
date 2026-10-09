@@ -63,18 +63,29 @@ var stateManager = (function(){
             boundDispatcher: 'local', //The dispatcher to use when processing LogUI events. Valid values are: 'local' and 'logui'
             guidanceHost: 'localhost:7080', //The host for the guidance service to use with Bot mode.
             activePathsRequestId: undefined,
-            clientId: crypto.randomUUID(),
-            guidanceMode: false 
+            guidanceMode: false
         }
 
         return browser.storage.local.set(state).then(afterStateInit, onError);
     }
 
+    /**
+     * @returns the UUID of this extension instance, the host of its moz-extension:// URLs. OdoBot sets it through the
+     * extensions.webextensions.uuids preference when it creates the browser for a task, so it knows the id in advance.
+     */
+    _public.instanceId = function(){
+        return new URL(browser.runtime.getURL('')).host
+    }
+
+    /**
+     * The clientId that identifies this extension instance to OdoBot. It is the instanceId, derived rather than stored,
+     * so it cannot go stale. It can no longer be set.
+     */
     _public.clientId = function(data){
-        if(data === undefined){
-            return _public.get('clientId')
+        if(data !== undefined){
+            console.warn('The clientId is the extension instance id and cannot be set.')
         }
-        return _public.set('clientId', data)
+        return Promise.resolve(_public.instanceId())
     }
 
     _public.activePathsRequestId = function(data){

@@ -152,13 +152,6 @@ function handleSelfSignedCertificateError(error, retryFunction){
 
     }
 
-    
+
 
 }
-
-//Check for client id and generate one if it is undefined.
-stateManager.exists('clientId').then(_cId=>{
-    if(!_cId){
-        stateManager.clientId(crypto.randomUUID())
-    }
-})

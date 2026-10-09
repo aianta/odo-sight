@@ -184,11 +184,13 @@ Promise.all([
 
 function initControlSocket(){
     return Promise.all([
-        stateManager.guidanceHost()
+        stateManager.guidanceHost(),
+        stateManager.clientId()
     ]).then(results=>{
         const guidanceHost = results[0]
+        const clientId = results[1]
 
-    const socket = new WebSocket(`wss://${guidanceHost}`)
+    const socket = new WebSocket(_GUIDANCE_SOCKET_URL(guidanceHost, clientId, 'ControlSocket'))
     socket.addEventListener('open', controlSocket.onOpen )
     socket.addEventListener('error', controlSocket.onError)
     socket.addEventListener('message', controlSocket.onMessage )

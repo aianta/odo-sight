@@ -119,19 +119,59 @@ const requestMap = new Map()
 const requestHeadersMap = new Map()
 const responseHeadersMap = new Map()
 
+/**
+ * The state needed to decide whether a network request should be captured, see matchesTargetHost.
+ */
+function networkCaptureState(){
+    //OdoBot's own hosts, never captured when every host is targeted. Any of them may be unset.
+    const ownHost = (key)=>stateManager.get(key).then(
+        (value)=>typeof value === 'string'? value.replace(/^[a-z]+:\/\//i, '').split('/')[0] : undefined,
+        _=>undefined
+    )
+
+    return Promise.all([
+        stateManager.shouldTrace(),
+        stateManager.shouldTransmit(),
+        stateManager.targetHost(),
+        ownHost('guidanceHost'),
+        ownHost('host'),
+        ownHost('endpoint'),
+        ownHost('odoSightSupportHost')
+    ]).then((values)=>({
+        shouldTrace: values[0],
+        shouldTransmit: values[1],
+        targetHost: values[2],
+        ownHosts: values.slice(3).filter(host=>host)
+    }))
+}
+
+/**
+ * Whether a request goes to one of the target hosts.
+ *
+ * The target host setting is a comma-separated list of hosts, a request matches if its url contains any of them.
+ * The special value '*' matches requests to any http(s) host made by a tab, except those to OdoBot's own hosts. Requests
+ * made by the browser itself (tabId -1, e.g. telemetry) are not part of the application.
+ */
+function matchesTargetHost(record, targetHostSetting, ownHosts){
+    const targets = (targetHostSetting || '').split(',').map(host=>host.trim()).filter(host=>host)
+
+    if(targets.includes('*')){
+        return record.tabId !== -1
+            && /^https?:\/\//.test(record.url)
+            && !ownHosts.some(host=>record.url.includes(host))
+    }
+
+    return targets.some(host=>record.url.includes(host))
+}
+
 function logNetworkRequest(record){
 
 
 
-    Promise.all([
-        stateManager.shouldTrace(),
-        stateManager.shouldTransmit(),
-        stateManager.targetHost()
-    ]).then((values)=>{
+    networkCaptureState().then((state)=>{
 
-        const shouldTrace = values[0]
-        const shouldTransmit = values[1]
-        const target_host = values[2]
+        const shouldTrace = state.shouldTrace
+        const shouldTransmit = state.shouldTransmit
 
         if(shouldTrace || shouldTransmit){ //Only intercept network requests if the 'shouldTrace' or 'shouldTransmit' flag is set.
             var _fields = [
@@ -147,10 +187,10 @@ function logNetworkRequest(record){
 
 
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
-            //Only capture xmlhttprequests or main_frame events going to the target host
+            //Only capture xmlhttprequests or main_frame events going to a target host
             //main_frame: Top-level documents loaded into a tab.
             //Not GET: something is being sent to the server, it's important. 
-            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
+            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && matchesTargetHost(record, state.targetHost, state.ownHosts)){
                 
                 let eventDetails = {
                     name: "NETWORK_EVENT"
@@ -322,22 +362,18 @@ browser.webRequest.onResponseStarted.addListener(logResponseHeaders, {
 
 function bundleAndSend(record){
 
-    Promise.all([
-        stateManager.shouldTrace(),
-        stateManager.shouldTransmit(),
-        stateManager.targetHost()
-    ]).then((values)=>{
-        const shouldTrace = values[0]
-        const shouldTransmit = values[1]
-        const target_host = values[2]
+    networkCaptureState().then((state)=>{
+
+        const shouldTrace = state.shouldTrace
+        const shouldTransmit = state.shouldTransmit
 
         if(shouldTrace || shouldTransmit){
             
             // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
-            //Only capture xmlhttprequests or main_frame events going to the target host
+            //Only capture xmlhttprequests or main_frame events going to a target host
             //main_frame: Top-level documents loaded into a tab.
             //Not GET: something is being sent to the server, it's important. 
-            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && record.url.includes(target_host)){
+            if((record.type === 'xmlhttprequest' || record.type === 'main_frame' || record.method !== 'GET' ) && matchesTargetHost(record, state.targetHost, state.ownHosts)){
                 
                     
                         

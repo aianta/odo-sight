@@ -28,3 +28,10 @@ _GUIDANCE_SERVICE_OPTIONS_PATH = "/api/targetNodes"
  * Odo Sight Support 
  */
 _ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo/v2"
+
+/**
+ * The URL of a socket to the guidance service. The clientId and source in the query let OdoBot bind the socket to its
+ * OdoClient during the handshake, before any message. guidance.js is a page script without access to this file, and
+ * builds the same URL itself.
+ */
+_GUIDANCE_SOCKET_URL = function(guidanceHost, clientId, source){return `wss://${guidanceHost}/?clientId=${encodeURIComponent(clientId)}&source=${source}`}

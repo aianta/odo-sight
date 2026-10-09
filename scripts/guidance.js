@@ -289,7 +289,8 @@ window.addEventListener("message", (event)=>{
     
                     if(guidanceSocket.socket === undefined || guidanceSocket.socket.readyState !== 1){
                         console.log("Creating guidance socket.")
-                        const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}`)
+                        //Same URL as _GUIDANCE_SOCKET_URL in constants.js, which this page script cannot load.
+                        const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}/?clientId=${encodeURIComponent(guidanceSocket.clientId)}&source=GuidanceSocket`)
                         socket.addEventListener('open', guidanceSocket.onOpen )
                         socket.addEventListener('error', guidanceSocket.onError)
                         socket.addEventListener('message', guidanceSocket.onMessage )

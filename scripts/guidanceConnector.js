@@ -200,9 +200,12 @@ var GuidanceConnector = (function() {
 
     var _initWebsocket = function(){
         console.log('Initializing eventSocket!')
-        stateManager.guidanceHost().then(host=>{
+        Promise.all([
+            stateManager.guidanceHost(),
+            stateManager.clientId()
+        ]).then(([host, clientId])=>{
             _guidanceHost = host
-            _websocket = new WebSocket(`wss://${_guidanceHost}`)
+            _websocket = new WebSocket(_GUIDANCE_SOCKET_URL(_guidanceHost, clientId, 'EventSocket'))
             _websocket.addEventListener('open', eventSocket.onOpen)
             _websocket.addEventListener('close', eventSocket.onClose)
             _websocket.addEventListener('message', eventSocket.onMessage)
