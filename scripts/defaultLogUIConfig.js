@@ -2,7 +2,10 @@ const _defaultConfig = {
     logUIConfiguration: {
         endpoint: 'ws://localhost:8000/ws/endpoint/',
         authorisationToken: '',
-        verbose: true
+        /* Verbose LogUI logs every event object to the console, and Firefox keeps every logged object alive for the
+         * console, whether or not devtools are open. With full-page DOM snapshots in DOM_EFFECT events that held
+         * gigabytes in the page during busy pages, so it stays off. */
+        verbose: false
     },
     odoSettings: {
       captureSetContent: false

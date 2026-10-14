@@ -152,92 +152,101 @@
         subtree: true
     }
 
+    /**
+     * Whether an added node is worth reporting: an element or text node that is attached to the page (pages often
+     * build templates off-document before inserting them, and those additions can't be located in the page), not a
+     * script or style element, and not inside another node added in the same batch (that node's HTML already
+     * contains it).
+     */
+    const isReportableAddition = function(node, addedSet){
+        if(!node.isConnected) return false
+        if(node.localName === 'script' || node.localName === 'style') return false
+        for(let parent = node.parentNode; parent; parent = parent.parentNode){
+            if(addedSet.has(parent)) return false
+        }
+        return true
+    }
+
+    /**
+     * One DOM_EFFECT per action ('remove', 'add', 'show', 'hide') per observer callback, rather than one per mutation
+     * record, all sharing one page snapshot: the DOM can't change while a callback runs, so every record of a callback
+     * would get the same snapshot anyway. A page that renders hundreds of nodes at once used to produce hundreds of
+     * events, each with a full-page copy, in one burst.
+     *
+     * Each event lists its nodes in mutation order, so the first node (the one OdoBot maps) is the first, top-most
+     * change of the batch.
+     */
     const callback = (mutationList, observer) => {
 
+        const removed = []
+        const added = []
+        const shown = []
+        const hidden = []
 
         for (const mutation of mutationList){
-            //Get an event details object ready
-            let eventDetails = {
-                name:'DOM_EFFECT'
-            }
-
-            
             /**
-             * Watch for changes in the style attribute of elements, 
-             * specifically for the 'isHidden' property. 
-             * If 'isHidden' has changed since last we saw it, fire off the appropriate
-             * 'show' or 'hide' log event.
+             * Watch for changes in the style attribute of elements, specifically for the 'isHidden' property.
+             * If 'isHidden' has changed since last we saw it, report a 'show' or 'hide'.
              */
-            if (mutation.type === 'attributes' &&
-                isHidden(mutation.target) !== mutation.target.isHidden){
-
-                    console.log("DOM EFFECT EVENT TIME: ", performance.now())
-
-                    eventDetails.action = isHidden(mutation.target)? "hide":"show"
-                    eventDetails.nodes = []
-                    eventDetails.nodes.push(stripDataFromNode(mutation.target))
-                    console.log("OLD isHidden:",mutation.target.isHidden, "NEW:", isHidden(mutation.target), "@", getElementTreeXPath(mutation.target))
-                    //update the isHidden value
-                    mutation.target.isHidden = isHidden(mutation.target)
+            if (mutation.type === 'attributes' && isHidden(mutation.target) !== mutation.target.isHidden){
+                const nowHidden = isHidden(mutation.target)
+                ;(nowHidden? hidden : shown).push(mutation.target)
+                mutation.target.isHidden = nowHidden
             }
 
             if (mutation.type === "childList"){
+                mutation.addedNodes.forEach(node=>added.push(node))
+                mutation.removedNodes.forEach(node=>removed.push(node))
 
+                //Remember whether added elements are hidden, so later 'style' mutations can report 'show' and 'hide'.
+                Array.from(mutation.addedNodes)
+                    .filter(node=>node instanceof Element)
+                    .forEach(element=>{
+                        element.isHidden = isHidden(element)
+                    })
+            }
+        }
 
-                //If a node was added
-                if(mutation.addedNodes.length > 0){
-                    eventDetails.action = 'add'
-                    eventDetails.nodes = stripDataFromNodes(mutation.addedNodes)
-                    
-                    //Mark elements with display CSS property set, store that 'last' display value in their properties.
-                    //This allows us to fire off 'show' and 'hide' events on 'style' attribute mutations.
-                    Array.from(mutation.addedNodes)
-                        .filter(node=>node instanceof Element)
-                        //.filter(node=>node instanceof Element && node.style.display !== "")
-                        .forEach(element=>{
-                            element.isHidden = isHidden(element)
-                        })
+        //Ensure LogUI is defined and active.
+        if(!(window.LogUI && window.LogUI.isActive())){
+            return
+        }
 
-                }
+        const addedSet = new Set(added)
+        const batches = [
+            ['remove', removed.filter(node=>node.localName !== 'script' && node.localName !== 'style')],
+            ['add', added.filter(node=>isReportableAddition(node, addedSet))],
+            ['show', shown],
+            ['hide', hidden]
+        ]
 
-                //If a node was removed
-                if(mutation.removedNodes.length > 0){
-                    eventDetails.action = 'remove'
-                    eventDetails.nodes = stripDataFromNodes(mutation.removedNodes)
-                }
-
-
-                
+        let snapshot = null
+        for(const [action, nodes] of batches){
+            const nodeData = stripDataFromNodes(nodes)
+            if(nodeData.length === 0){
+                continue
             }
 
-            //Ensure LogUI is defined and active. Only log event if we have nodes to report
-            if(window.LogUI && window.LogUI.isActive() && eventDetails.nodes && eventDetails.nodes.length > 0){
-                
-                
-                // If there's only one node, move the xpath field out into eventDetails for convenience
-                if(eventDetails.nodes.length === 1){
-                    eventDetails.xpath = eventDetails.nodes[0].xpath
-                }
-
-                if(eventDetails.xpath === undefined){
-                    console.log(eventDetails)
-                }
-                
-                if(eventDetails.nodes.length === 1 && eventDetails.nodes[0].localName === 'script' || //Don't log scripts 
-                   eventDetails.nodes[0].localName === 'style' //Don't log style elements
-                   ){
-                    return
-                }
-                
-                //console.debug(`passing eventDetails ${JSON.stringify(eventDetails, ["name", "action", "xpath"], 4)}`)
-                eventDetails.domSnapshot = captureDOMSnapshot()
-                
-                //Stringify nodes before we send it
-                eventDetails.nodes = JSON.stringify(eventDetails.nodes)
-
-                window.LogUI.logCustomMessage(eventDetails)
+            const eventDetails = {
+                name: 'DOM_EFFECT',
+                action: action,
+                nodes: nodeData
+            }
+            // If there's only one node, move the xpath field out into eventDetails for convenience
+            if(nodeData.length === 1){
+                eventDetails.xpath = nodeData[0].xpath
             }
 
+            //One snapshot per callback, taken only when there is something to report.
+            if(snapshot === null){
+                snapshot = captureDOMSnapshot()
+            }
+            eventDetails.domSnapshot = snapshot
+
+            //Stringify nodes before we send it
+            eventDetails.nodes = JSON.stringify(eventDetails.nodes)
+
+            window.LogUI.logCustomMessage(eventDetails)
         }
     }
 
