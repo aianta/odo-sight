@@ -83,120 +83,162 @@ async function handleGuidanceMessage(data){
 
                 odoBot.reply(data, 'NAVIGATION_OPTIONS_SHOW_RESULT', {pathsRequestId: data.pathsRequestId})
                 break;
-            case "EXECUTE":
-
-                switch(data.action){
-
-                    case "input":
-
-                        //TinyMCE input commands will specify an editor id.
-                        if (data.editorId !== undefined){
-                            performInputTinymce(data.editorId, data.data)
-                        }else{
-                            //Otherwise we're looking for an input element at a specific xpath to enter info into.
-                            const inputXpath = data.xpath
-                            var targetElement = getElementByXpath(inputXpath)
-
-                            if(targetElement === undefined){
-                                console.log("Could not find element to enter data into")
-                            }
-
-                            handleAlternateXpath(targetElement, data)
-                                .then(_=>performInput(targetElement, data.data))
-                                .catch(_=>handleUnresolvableXpath(data))
-                        }
-
-                        break;
-
-                    case "selectOption":
-
-                        var targetElement = getElementByXpath(data.xpath)
-
-                        if(targetElement === undefined){
-                            console.log("Could not find element from which to select option")
-                        }
-                        handleAlternateXpath(targetElement, data)
-                        .then(_=>performSelect(targetElement, data.value))
-                        .catch(_=>handleUnresolvableXpath(data))
-
-                        break;
-                    case "queryDom": {
-
-                        console.log("Got queryDom command!")
-
-                        const queryResults = await performDomQuery(data)
-
-                        odoBot.reply(data, 'EXECUTION_RESULT', {
-                            pathsRequestId: data.pathsRequestId,
-                            queryResults: queryResults,
-                            sourceNodeId: data.sourceNodeId
-                        })
-
-                        break;
-                    }
-                    case "click":
-                        console.log("Got click command to execute!")
-                        var clickXpath = data.xpath
-
-                        if (clickXpath.endsWith('/svg')){
-                            console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
-                            clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
-                            console.log(`Adjusted xpath: ${clickXpath}`)
-                        }
-
-                        var targetElement = getElementByXpath(clickXpath)
-
-                        if(targetElement === undefined){
-                            console.log("Could not find element to click!")
-                            return
-                        }
-
-                        handleAlternateXpath(targetElement, data)
-                        .then(_=>{
-                            console.log("Performing click on target element")
-                            performClick(targetElement)
-                        })
-                        .catch(_=>handleUnresolvableXpath(data))
-
-                        break;
-                    case "getDOMSnapshot":
-
-                        odoBot.reply(data, 'EXECUTION_RESULT', {domSnapshot: captureDOMSnapshot()})
-                        break;
-
-                    case "getUIControlState":
-
-                        odoBot.reply(data, 'EXECUTION_RESULT', {
-                            pathsRequestId: data.pathsRequestId,
-                            uiControlType: data.uiControlType,
-                            state: getUIControlState(data.xpath, data.uiControlType, data.editorId)
-                        })
-                        break;
-
-                    /**
-                     * Uncharted agents (e.g. OdoBot's Qwen3.8 agent) act on screenshot coordinates rather than xpaths. OdoBot sends the
-                     * action of one model step as an 'uncharted_step', with the action under 'unchartedAction'. No EXECUTION_RESULT is expected.
-                     */
-                    case "uncharted_step":
-                        await enqueueUnchartedWork(()=>performUnchartedStep(data))
-                        break;
-                    case "left_click":
-                    case "double_click":
-                    case "triple_click":
-                    case "type":
-                    case "key":
-                    case "scroll":
-                    case "hscroll":
-                    case "wait":
-                        await enqueueUnchartedWork(()=>performUnchartedAction(data))
-                        break;
-
+            case "EXECUTE": {
+                //Every EXECUTE gets exactly one reply: its EXECUTION_RESULT, or EXECUTE_DONE once it has run.
+                let outcome
+                try{
+                    outcome = await executeInstruction(data)
+                }catch(err){
+                    console.error(`[guidance.js] ${data.action} failed`, err)
+                    outcome = executionFailed(err?.message ?? String(err))
                 }
-
+                if(outcome !== null){
+                    odoBot.reply(data, 'EXECUTE_DONE', outcome)
+                }
                 break;
+            }
         }
     }catch(err){
         console.log(err)
+    }
+}
+
+function executionOk(){
+    return {status: 'ok'}
+}
+
+function executionFailed(reason){
+    return {status: 'failed', reason: reason}
+}
+
+/**
+ * Run one EXECUTE.
+ * @returns what to report in its EXECUTE_DONE, {status, reason}, or null if it already answered with its
+ * EXECUTION_RESULT.
+ */
+async function executeInstruction(data){
+    switch(data.action){
+
+        case "input": {
+
+            //TinyMCE input commands will specify an editor id.
+            if (data.editorId !== undefined){
+                performInputTinymce(data.editorId, data.data)
+                return executionOk()
+            }
+
+            //Otherwise we're looking for an input element at a specific xpath to enter info into.
+            const targetElement = getElementByXpath(data.xpath)
+
+            if(targetElement === undefined){
+                console.log("Could not find element to enter data into")
+            }
+
+            return handleAlternateXpath(targetElement, data)
+                .then(_=>{
+                    performInput(targetElement, data.data)
+                    return executionOk()
+                })
+                .catch(_=>{
+                    handleUnresolvableXpath(data)
+                    return executionFailed('unresolvable xpath')
+                })
+        }
+
+        case "selectOption": {
+
+            const targetElement = getElementByXpath(data.xpath)
+
+            if(targetElement === undefined){
+                console.log("Could not find element from which to select option")
+            }
+            return handleAlternateXpath(targetElement, data)
+                .then(_=>{
+                    performSelect(targetElement, data.value)
+                    return executionOk()
+                })
+                .catch(_=>{
+                    handleUnresolvableXpath(data)
+                    return executionFailed('unresolvable xpath')
+                })
+        }
+
+        case "queryDom": {
+
+            console.log("Got queryDom command!")
+
+            const queryResults = await performDomQuery(data)
+
+            odoBot.reply(data, 'EXECUTION_RESULT', {
+                pathsRequestId: data.pathsRequestId,
+                queryResults: queryResults,
+                sourceNodeId: data.sourceNodeId
+            })
+            return null
+        }
+
+        case "click": {
+            console.log("Got click command to execute!")
+            var clickXpath = data.xpath
+
+            if (clickXpath.endsWith('/svg')){
+                console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
+                clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
+                console.log(`Adjusted xpath: ${clickXpath}`)
+            }
+
+            const targetElement = getElementByXpath(clickXpath)
+
+            if(targetElement === undefined){
+                console.log("Could not find element to click!")
+                return executionFailed('element not found')
+            }
+
+            return handleAlternateXpath(targetElement, data)
+                .then(_=>{
+                    console.log("Performing click on target element")
+                    performClick(targetElement)
+                    return executionOk()
+                })
+                .catch(_=>{
+                    handleUnresolvableXpath(data)
+                    return executionFailed('unresolvable xpath')
+                })
+        }
+
+        case "getDOMSnapshot":
+
+            odoBot.reply(data, 'EXECUTION_RESULT', {domSnapshot: captureDOMSnapshot()})
+            return null
+
+        case "getUIControlState":
+
+            odoBot.reply(data, 'EXECUTION_RESULT', {
+                pathsRequestId: data.pathsRequestId,
+                uiControlType: data.uiControlType,
+                state: getUIControlState(data.xpath, data.uiControlType, data.editorId)
+            })
+            return null
+
+        /**
+         * Uncharted agents (e.g. OdoBot's Qwen3.8 agent) act on screenshot coordinates rather than xpaths. OdoBot sends the
+         * action of one model step as an 'uncharted_step', with the action under 'unchartedAction'. OdoBot observes the
+         * step once it is reported done, so a wait is reported done only once it has waited.
+         */
+        case "uncharted_step":
+            return enqueueUnchartedWork(()=>performUnchartedStep(data))
+        case "left_click":
+        case "double_click":
+        case "triple_click":
+        case "type":
+        case "key":
+        case "scroll":
+        case "hscroll":
+        case "wait":
+            return enqueueUnchartedWork(()=>performUnchartedAction(data))
+
+        default:
+            return executionFailed(`unknown action ${data.action}`)
     }
 }
 
@@ -644,12 +686,17 @@ let unchartedQueue = Promise.resolve()
 
 /**
  * Uncharted work runs one piece at a time in the order it was received, so a step never overlaps the previous one (e.g. during a wait).
+ * @returns a promise of the work's outcome, to report in its EXECUTE_DONE.
  */
 function enqueueUnchartedWork(work){
-    unchartedQueue = unchartedQueue
+    const outcome = unchartedQueue
         .then(work)
-        .catch(err=>console.error('[guidance.js] Uncharted work failed', err))
-    return unchartedQueue
+        .then(()=>executionOk(), err=>{
+            console.error('[guidance.js] Uncharted work failed', err)
+            return executionFailed(err?.message ?? String(err))
+        })
+    unchartedQueue = outcome
+    return outcome
 }
 
 function unchartedSleep(ms){
@@ -662,8 +709,7 @@ function unchartedSleep(ms){
 async function performUnchartedStep(step){
     console.log(`[guidance.js] Uncharted step ${step.step}: ${step.lowLevelInstruction}`)
     if(!step.unchartedAction){
-        console.error(`[guidance.js] Uncharted step ${step.step} has no action`, step)
-        return
+        throw new Error(`Uncharted step ${step.step} has no action`)
     }
     await performUnchartedAction(step.unchartedAction)
 }
@@ -697,7 +743,7 @@ async function performUnchartedAction(action){
             await unchartedSleep(seconds * 1000)
             break;
         default:
-            console.warn(`[guidance.js] Unknown uncharted action: ${action.action}`)
+            throw new Error(`Unknown uncharted action: ${action.action}`)
     }
 }
 

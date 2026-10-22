@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "node --test test/guidanceRelay.test.js"
+    "test": "node --test test/guidanceRelay.test.js test/guidance.test.js"
   },
   "dependencies": {
     "web-ext": "^7.12.0"

@@ -160,6 +160,42 @@ test('a page cannot send the messages only the relay sends', async ()=>{
     assert.equal(relay.sent.length, before)
 })
 
+test('a page that goes away has the EXECUTEs it did not answer answered for it', async ()=>{
+    const relay = loadRelay(1)
+    const port = fakePort(1)
+    relay.connect(port)
+    await flush()
+
+    relay.fromOdoBot({type: 'EXECUTE', id: 'm1', pageId: 'page-1'})
+    relay.fromOdoBot({type: 'EXECUTE', id: 'm2', pageId: 'page-1'})
+    port.fromPage({type: 'EXECUTE_DONE', id: 'd1', replyTo: 'm1', status: 'ok'})
+
+    port.gone()
+
+    const done = relay.sentOfType('EXECUTE_DONE')
+    assert.equal(done.length, 2)
+    assert.equal(done[0].replyTo, 'm1')
+    assert.equal(done[0].status, 'ok')
+    assert.equal(done[1].replyTo, 'm2')
+    assert.equal(done[1].status, 'page-gone')
+})
+
+test('a page replaced by the next one in its tab has its unanswered EXECUTEs answered', async ()=>{
+    const relay = loadRelay(1)
+    const first = fakePort(1)
+    relay.connect(first)
+    await flush()
+    relay.fromOdoBot({type: 'EXECUTE', id: 'm1', pageId: 'page-1'})
+
+    relay.connect(fakePort(1))
+
+    const done = relay.sentOfType('EXECUTE_DONE')
+    assert.equal(done.length, 1)
+    assert.equal(done[0].replyTo, 'm1')
+    assert.equal(done[0].status, 'page-gone')
+    assert.ok(first.disconnected)
+})
+
 test('the relay tells OdoBot its page again when the socket reopens', async ()=>{
     const relay = loadRelay(1)
     relay.connect(fakePort(1))

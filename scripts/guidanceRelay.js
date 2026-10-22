@@ -13,12 +13,15 @@
  * answered with NOT_DELIVERED. OdoBot decides what to do then; it is the only place guidance messages wait.
  *
  * Messages from a page are stamped with its pageId, and only the types a page sends are passed on.
+ *
+ * The page answers every EXECUTE once it has run it. If the page goes away first, e.g. because the EXECUTE navigated,
+ * the relay answers for it with EXECUTE_DONE {status: 'page-gone'}, so OdoBot always hears back about a delivered EXECUTE.
  */
 var GuidanceRelay = (function(){
     var _public = {}
 
-    var _ports = new Map() //The ports of the pages that are ready, by tab id: {port, pageId}.
-    var _target = null //The page guidance messages go to: {tabId, port, pageId}, or null.
+    var _ports = new Map() //The pages that are ready, by tab id: {port, pageId, outstanding}.
+    var _target = null //The page guidance messages go to: {tabId, port, pageId, outstanding}, or null.
 
     var _updating = Promise.resolve() //Target updates run one at a time, see updateTarget().
 
@@ -57,16 +60,19 @@ var GuidanceRelay = (function(){
             return
         }
 
-        //A tab has one page, so a new port replaces any old one.
+        //A tab has one page, so a new port replaces any old one. Disconnecting it from here doesn't fire its
+        //onDisconnect, so its outstanding EXECUTEs are answered here.
         const old = _ports.get(tabId)
         if(old !== undefined){
             old.port.disconnect()
+            answerOutstanding(old)
             if(_target !== null && _target.port === old.port){
                 _target = null
             }
         }
 
-        const page = {port: port, pageId: crypto.randomUUID()}
+        //outstanding: the EXECUTE messages delivered to the page that it hasn't answered yet, by id.
+        const page = {port: port, pageId: crypto.randomUUID(), outstanding: new Map()}
         _ports.set(tabId, page)
         port.onMessage.addListener(message=>onPageMessage(page, message))
         port.onDisconnect.addListener(()=>onPortGone(tabId, page))
@@ -84,10 +90,22 @@ var GuidanceRelay = (function(){
         }
     }
 
+    /**
+     * The page went away before answering some EXECUTEs, most likely because one of them navigated. Answer them for it.
+     */
+    function answerOutstanding(page){
+        page.outstanding.forEach(execute=>{
+            OdoBotSocket.reply(execute, 'EXECUTE_DONE', {status: 'page-gone', pageId: page.pageId})
+        })
+        page.outstanding.clear()
+    }
+
     function onPortGone(tabId, page){
         if(_ports.get(tabId) === page){
             _ports.delete(tabId)
         }
+
+        answerOutstanding(page)
 
         if(_target !== null && _target.port === page.port){
             _target = null
@@ -117,7 +135,7 @@ var GuidanceRelay = (function(){
                 }
 
                 if(page !== undefined){
-                    _target = {tabId: tabId, port: page.port, pageId: page.pageId}
+                    _target = {tabId: tabId, port: page.port, pageId: page.pageId, outstanding: page.outstanding}
                     sendPageState('PAGE_READY', {tabId: tabId, pageId: page.pageId, url: page.port.sender?.url})
                 }
             })
@@ -129,6 +147,9 @@ var GuidanceRelay = (function(){
      */
     function onOdoBotMessage(message){
         if(_target !== null && message.pageId === _target.pageId){
+            if(message.type === 'EXECUTE'){
+                _target.outstanding.set(message.id, message)
+            }
             _target.port.postMessage(message)
             return
         }
@@ -149,6 +170,9 @@ var GuidanceRelay = (function(){
         if(!_PAGE_MESSAGE_TYPES.has(message.type)){
             console.warn(`[guidanceRelay.js] Dropping a ${message.type} from the page, which pages don't send`)
             return
+        }
+        if(message.replyTo !== undefined){
+            page.outstanding.delete(message.replyTo)
         }
         OdoBotSocket.send('guidance', message.type, Object.assign({}, message, {pageId: page.pageId}))
     }

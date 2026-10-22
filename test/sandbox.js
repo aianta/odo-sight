@@ -56,10 +56,67 @@ function loadScript(script, {activeTabId = 1} = {}){
 }
 
 /**
+ * Load guidance.js, which runs in the page, with stubs for the page.
+ * @returns the sandbox, plus fromOdoBot(message), which hands guidance.js a message as main.js does, and toOdoBot, every
+ * message guidance.js sent to OdoBot, in order.
+ */
+function loadPageScript(script = 'guidance.js'){
+    const listeners = []
+    const toOdoBot = []
+
+    const window = {
+        addEventListener: (type, listener)=>{
+            if(type === 'message'){
+                listeners.push(listener)
+            }
+        },
+        postMessage: data=>{
+            if(data?.origin === 'guidance.js' && data.type === 'GUIDANCE_MESSAGE'){
+                toOdoBot.push(data.message)
+            }
+        }
+    }
+
+    const sandbox = {
+        console: {log(){}, debug(){}, warn(){}, error(){}},
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout,
+        window: window,
+        crypto: {getRandomValues: bytes=>require('node:crypto').getRandomValues(bytes)},
+        document: {adoptedStyleSheets: []},
+        CSSStyleSheet: class { replaceSync(){} }
+    }
+
+    vm.createContext(sandbox)
+    const file = path.join(__dirname, '..', 'scripts', script)
+    vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox, {filename: file})
+
+    const fromOdoBot = message=>listeners.forEach(listener=>listener({
+        source: window,
+        data: {origin: 'main.js', type: 'GUIDANCE_MESSAGE', message: message}
+    }))
+
+    return {sandbox, fromOdoBot, toOdoBot}
+}
+
+/**
  * Let pending promise callbacks and timers run.
  */
 function flush(){
     return new Promise(resolve=>setTimeout(resolve, 0))
 }
 
-module.exports = {loadScript, flush}
+/**
+ * Wait until the condition holds, or fail after a second.
+ */
+async function until(condition){
+    const deadline = Date.now() + 1000
+    while(!condition()){
+        if(Date.now() > deadline){
+            throw new Error('timed out waiting')
+        }
+        await new Promise(resolve=>setTimeout(resolve, 5))
+    }
+}
+
+module.exports = {loadScript, loadPageScript, flush, until}
