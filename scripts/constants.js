@@ -25,8 +25,18 @@ _ODO_SIGHT_VALID_STATE_VERISON = "0.2"
 _ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo/v2"
 
 /**
- * The URL of a socket to the guidance service. The clientId and source in the query let OdoBot bind the socket to its
- * OdoClient during the handshake, before any message. guidance.js is a page script without access to this file, and
- * builds the same URL itself.
+ * The version of the protocol OdoX speaks with OdoBot, see odoBotSocket.js. OdoBot refuses sockets of any other version.
  */
-_GUIDANCE_SOCKET_URL = function(guidanceHost, clientId, source){return `wss://${guidanceHost}/?clientId=${encodeURIComponent(clientId)}&source=${source}`}
+_ODOBOT_PROTOCOL_VERSION = 2
+
+/**
+ * The URL of OdoX's socket to OdoBot. The clientId and protocol in the query let OdoBot bind the socket to its OdoClient
+ * during the handshake, before any message.
+ */
+_ODOBOT_SOCKET_URL = function(guidanceHost, clientId){return `wss://${guidanceHost}/?clientId=${encodeURIComponent(clientId)}&protocol=${_ODOBOT_PROTOCOL_VERSION}`}
+
+/**
+ * The name of the ports main.js opens to the background, which carry guidance.js's messages to and from OdoBot, see
+ * guidanceRelay.js.
+ */
+_GUIDANCE_PORT_NAME = "guidance"

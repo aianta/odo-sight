@@ -27,13 +27,7 @@ var GuidanceConnector = (function() {
     var _sessionStartTimestamp = null;
     var _libraryStartTimestamp = null;
     var _cache = [];
-    var _websocket = null;
-    var _websocketReconnectionReference = null;
-    var _guidanceHost = null;
     var _transmit = false;
-    var _websocketReconnectionAttempts = 0;
-    var _maxWebsocketReconnectionAttempts  = 10;
-    var _websocketReconnectionAttemptDelay = 10000; //10 s
 
 
     _public.dispatcherType = 'guidance';
@@ -65,73 +59,39 @@ var GuidanceConnector = (function() {
         return objectToSend.eventType === 'customEvent' && details?.name === 'INPUT_CHANGE' && details?.source === 'tinyMCE'
     }
 
-    var eventSocket = {
-        
-        makePayload: async function(type){
-            return {
-                clientId: await stateManager.clientId(),
-                source: 'EventSocket',
-                type: type
-            }
-        },
-        notifyReconnected: async function(){
-            const payload = await this.makePayload('NOTIFY_RECONNECT')
-            _websocket.send(JSON.stringify(payload))
-        },
+    /**
+     * The 'event' channel of OdoX's socket to OdoBot, see odoBotSocket.js.
+     */
+    var eventChannel = {
         sendEvent: async function(event){
-            console.log(`sending event: ${event}`)
-            const payload = await this.makePayload('EVENT')
-            payload['pathsRequestId'] = await stateManager.activePathsRequestId()
-            payload['event'] = event
-            _websocket.send(JSON.stringify(payload))
+            OdoBotSocket.send('event', 'EVENT', {
+                pathsRequestId: await stateManager.activePathsRequestId(),
+                event: event
+            })
         },
-        onOpen: async function(event){
-            console.log(`[guidanceConnector.js] EventSocket connection established`)
-            eventSocket.notifyReconnected()
-        },
-        onClose: async function(event){
-
-            //TODO -> proper handling using error codes?
-            //https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
-
-
-
-            if(await stateManager.boundDispatcher() === 'local'){ //If we're in bot mode, try to re-establish the connection.
-                _public.socketPersistence()
-            }
-            
-            
-
-
-        },
-        onMessage: async function(msg){
-            console.log('[guidanceConnector.js] EventSocket got: ', msg)
-            console.log(msg.data)
-            const data = JSON.parse(msg.data)
-            let payload = null
+        onMessage: async function(data){
+            console.log(`[guidanceConnector.js] Event channel got ${data.type}`)
             switch(data.type){
                 case "GET_SCREENSHOT":
-
-                    payload = await eventSocket.makePayload('SCREENSHOT')
 
                     //OdoBot asks for a screenshot once the page has settled after an uncharted step.
                     _captureActiveTab()
                         .then(({screenshot, url})=>{
-                            payload['screenshot'] = screenshot
-                            payload['userLocation'] = url
-                            _websocket.send(JSON.stringify(payload))
+                            OdoBotSocket.reply(data, 'SCREENSHOT', {
+                                screenshot: screenshot,
+                                userLocation: url
+                            })
                         })
                         .catch(err=>console.error("[guidanceConnector.js] Failed to capture a screenshot", err))
 
 
                     break;
                 case "PATH_COMPLETE":
-                    
+
                     await stateManager.shouldTransmit(false)
                     await stateManager.clearActivePathsRequestId()
-                    
-                    payload = await eventSocket.makePayload("PATH_COMPLETE_ACK")                
-                    _websocket.send(JSON.stringify(payload))
+
+                    OdoBotSocket.reply(data, 'PATH_COMPLETE_ACK')
 
                     break
                 case "START_TRANSMISSION":
@@ -154,124 +114,29 @@ var GuidanceConnector = (function() {
                             console.error("[guidanceConnector.js] Failed to capture the tab for the Observation", err)
                             return _public.packageObservation(undefined, undefined)
                         })
-                    const observationSent = eventSocket.sendEvent(observation)
+                    const observationSent = eventChannel.sendEvent(observation)
                         .catch(err=>console.error("[guidanceConnector.js] Failed to send the Observation", err))
                     _cache = [] //Events recorded before transmission started are not sent.
                     _transmit = true
                     await stateManager.shouldTransmit(true)
 
-                    payload = await eventSocket.makePayload("TRANSMISSION_STARTED")
-                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
+                    const startedPathsRequestId = await stateManager.activePathsRequestId()
 
                     await observationSent
 
                     console.log("Sending transmission started confirmation!")
 
-                    _websocket.send(JSON.stringify(payload))
+                    OdoBotSocket.reply(data, 'TRANSMISSION_STARTED', {pathsRequestId: startedPathsRequestId})
                     break
                 case "STOP_TRANSMISSION":
                     _transmit = false
                     await stateManager.shouldTransmit(false)
 
-                    payload = await eventSocket.makePayload("TRANSMISSION_STOPPED")
-                    payload['pathsRequestId'] = await stateManager.activePathsRequestId()
-                    
-                    _websocket.send(JSON.stringify(payload))
+                    OdoBotSocket.reply(data, 'TRANSMISSION_STOPPED', {pathsRequestId: await stateManager.activePathsRequestId()})
                     break
             }
 
-        },
-        onError: async function(error){
-            console.error(error)
-        },
-        cleanup: function(){
-            console.log('Event socket cleaning up')
-            if(_websocket !== null){
-                _websocket.removeEventListener('open', eventSocket.onOpen)
-                _websocket.removeEventListener('close', eventSocket.onClose)
-                _websocket.removeEventListener('message', eventSocket.onMessage)
-                _websocket.removeEventListener('error', eventSocket.onError)
-                _websocket.close()
-            }
-            
-            //_websocket === null
         }
-    }
-
-    var _initWebsocket = function(){
-        console.log('Initializing eventSocket!')
-        Promise.all([
-            stateManager.guidanceHost(),
-            stateManager.clientId()
-        ]).then(([host, clientId])=>{
-            _guidanceHost = host
-            _websocket = new WebSocket(_GUIDANCE_SOCKET_URL(_guidanceHost, clientId, 'EventSocket'))
-            _websocket.addEventListener('open', eventSocket.onOpen)
-            _websocket.addEventListener('close', eventSocket.onClose)
-            _websocket.addEventListener('message', eventSocket.onMessage)
-            _websocket.addEventListener('error', eventSocket.onError)
-            //eventSocket.notifyReconnected()
-        }).catch((error)=>{
-            console.log(error)
-            console.log("Error establishing event websocket! Trying again!")
-            //_initWebsocket()
-        })
-        
-    }
-
-    _public.socketPersistence = function(){
-
-        //If the reconnection logic hasn't been set up yet
-        if(!_websocketReconnectionReference){
-            
-            //Set it up on an interval.
-            _websocketReconnectionReference = setInterval(()=>{
-                console.log(`[guidanceConnector.js] Checking WebSocket connection...`)
-                if(_websocket){ //If there is a non-null websocket object
-                    
-                    console.log(`websocket is: ${_websocket} readyState: ${_websocket.readyState}`)
-
-                    switch(_websocket.readyState){
-                        case 0:
-                            return;
-                        case 1:
-                            console.log("[guidanceConnector.js] WebSocket connection re-established")
-                            clearInterval(_websocketReconnectionReference)
-                            _websocketReconnectionAttempts = 0
-                            _websocketReconnectionReference = null;
-                            return;
-                        default:
-                            console.log("[guidanceConnector.js] WebSocket connection to the server has failed; unable to reconnect.")
-                            eventSocket.cleanup()       
-                    }
-
-                }
-
-                _websocketReconnectionAttempts += 1;
-                
-                console.log(`(Re-)connection attempt: ${_websocketReconnectionAttempts}`)
-                _initWebsocket()
-
-            }, _websocketReconnectionAttemptDelay) //10s
-
-        }
-
-    }
-    
-
-    _public.startEventSocket = function(){
-        _initWebsocket()
-        _public.socketPersistence()
-    }
-
-    _public.stopEventSocket = function(){
-        //Disable persistence first
-        if(_websocketReconnectionReference !== null){
-            clearInterval(_websocketReconnectionReference)
-            _websocketReconnectionReference = null;
-        }
-
-        eventSocket.cleanup()
     }
 
 
@@ -321,9 +186,9 @@ var GuidanceConnector = (function() {
                         objectToSend.eventDetails.screenshot = screenshot
                     })
                     .catch(err=>console.error("[guidanceConnector.js] Failed to capture a screenshot, sending the event without one", err))
-                    .then(()=>eventSocket.sendEvent(objectToSend))
+                    .then(()=>eventChannel.sendEvent(objectToSend))
                 }else{
-                    eventSocket.sendEvent(objectToSend)
+                    eventChannel.sendEvent(objectToSend)
                 }
 
                 
@@ -358,14 +223,7 @@ var GuidanceConnector = (function() {
 
         packageObject.eventType = 'customEvent'
         packageObject.eventDetails = eventDetails
-        if(_public._websocket !== null){ //Only send object if we have a websocket connection
-            _public.sendObject(packageObject)
-        }else{
-            console.error("Failed to send: ")
-            console.error(JSON.stringify(eventDetails, null, 4))
-        }
-
-
+        _public.sendObject(packageObject)
     }
 
     /**
@@ -408,19 +266,6 @@ var GuidanceConnector = (function() {
 
     _public.handleStateChange = function(changes){
 
-        if ('guidanceMode' in changes && changes['guidanceMode'].newValue){
-            _public.startEventSocket()
-        }
-
-        if ('guidanceMode' in changes && !changes['guidanceMode'].newValue){
-            _public.stopEventSocket()
-        }
-
-        if('activePathsRequestId' in changes){
-            console.log(changes)
-            console.log("_websocket is: ", _websocket)
-        }
-
         if('shouldRecord' in changes && changes['shouldRecord'].newValue){
             _public.init()
         
@@ -437,20 +282,11 @@ var GuidanceConnector = (function() {
 
     }
 
+    OdoBotSocket.on('event', eventChannel.onMessage)
+
     return _public;
 })();
 
 
 browser.storage.local.onChanged.addListener(GuidanceConnector.handleStateChange)
-
-stateManager.guidanceMode()
-    .then(_guidanceMode=>{
-        if(_guidanceMode){
-            GuidanceConnector.startEventSocket()
-        }
-    })
-    .catch(err=>{
-        console.log("[guidanceConnector.js] Tried to check 'guidanceMode' flag before it was defined.")
-    })
-
 

@@ -2,321 +2,211 @@ console.log('hello from guidance script')
 
 const highlightedElements = new Map();
 
-const guidanceSocket = {
-    socket: undefined,
-    clientId: undefined, 
-    reconnectionReference: null,
-    reconnectionAttempts : 0,
-    promises: new Map(),
-    socketPersistence: function(){
-        //If the recoonection logic hasn't been set up yet
-        if(!guidanceSocket.reconnectionReference){
+/**
+ * guidance.js's connection to OdoBot. guidance.js runs in the page, where page CSP can block connections to OdoBot, so it
+ * doesn't connect itself: its messages go through main.js and the background (guidanceRelay.js), which sends them over
+ * OdoX's socket to OdoBot. See odoBotSocket.js for the message format.
+ */
+const odoBot = {
+    /**
+     * Resolves the promises waiting for OdoBot to answer a message, by the id of that message.
+     */
+    pendingReplies: new Map(),
 
-            //Set it up on an interval
-            guidanceSocket.reconnectionReference = setInterval(()=>{
-                console.log(`[guidance.js] Checking WebSocket connection... websocket is ${guidanceSocket.socket} readyState: ${guidanceSocket.socket.readyState}`)
-                if(guidanceSocket.socket){//If there is a non-null websocket object
-
-                    switch(guidanceSocket.socket.readyState){
-                        case 0:
-                            return;
-                        case 1:
-                            console.log("[guidance.js] WebSocket connection re-established")
-                            clearInterval(guidanceSocket.reconnectionReference)
-                            guidanceSocket.reconnectionAttempts = 0;
-                            guidanceSocket.reconnectionReference = null;
-                            return;
-                        default:
-                            console.log(`[guidance.js] WebSocket connection to the server has failed; unable to reconnect.`)
-                            guidanceSocket.shutdown()
-                    }
-                }
-
-                guidanceSocket.reconnectionAttempts += 1;
-                console.log(`(Re-)connection attempt ${guidanceSocket.reconnectionAttempts}`)
-                initGuidanceSocket()
-            })
-        }
-    },
-    makePayload: function(type){
-        return {
-            clientId: guidanceSocket.clientId,
-            source: 'GuidanceSocket',
-            type: type
-        }
+    /**
+     * crypto.randomUUID is not available on pages served over http, crypto.getRandomValues is.
+     */
+    newMessageId: function(){
+        const bytes = crypto.getRandomValues(new Uint8Array(16))
+        return Array.from(bytes, byte=>byte.toString(16).padStart(2, '0')).join('')
     },
 
-    notifyReconnected: async function(){
-        try{
-            console.log("Attempting to notify reconnected!")
-            const payload = this.makePayload('NOTIFY_RECONNECT')
-            this.socket.send(JSON.stringify(payload))
-        }catch(error){
-            console.error(error)
-        }
-        
+    /**
+     * Send a message to OdoBot.
+     * @returns the message as sent.
+     */
+    send: function(type, fields = {}){
+        const message = Object.assign({}, fields, {type: type, id: odoBot.newMessageId()})
+        window.postMessage({
+            origin: 'guidance.js',
+            type: 'GUIDANCE_MESSAGE',
+            message: message
+        })
+        return message
     },
 
-    onOpen: async function(){
-        console.log(`[guidance.js] Guidance socket connection established`)
-        guidanceSocket.notifyReconnected()
-    },
-    onError: async function(err){
-        console.log(err)
-    },
-    onMessage: async function(msg){
-        try{
-            console.log('[guidance.js] GuidanceSocket got: ', msg)
-            console.log(msg.data)
-            const data = JSON.parse(msg.data)
-            
-            let response = undefined; 
-
-            switch(data.type){
-                case "ALTERNATE_XPATH_CONFIRMED":
-                    //Look up a promise waiting for this confirmation.
-                    let promiseKey = "REGISTER_ALTERNATE_XPATH,"+ data.alternateXpath
-
-                    let resolve = guidanceSocket.promises.get(promiseKey)
-
-                    if(resolve !== undefined && resolve !== null){
-                        resolve()
-                    }
-
-                    //Remove/Clean-up the promise entry
-                    guidanceSocket.promises.delete(promiseKey)
-
-
-                    break;
-                case "PATH_COMPLETE":
-                    clearHighlighting(); 
-                    showPathComplete();
-                    response = guidanceSocket.makePayload("PATH_COMPLETE_ACK")
-                    guidanceSocket.socket.send(JSON.stringify(response))
-                    break;
-                case "CLEAR_NAVIGATION_OPTIONS":
-                    clearHighlighting();
-                    
-                    response = guidanceSocket.makePayload("CLEAR_NAVIGATION_OPTIONS_RESULT")
-                    guidanceSocket.socket.send(JSON.stringify(response))
-
-                    break;
-                case "SHOW_NAVIGATION_OPTIONS":
-                    console.log('Got SHOW_NAVIGATION_OPTIONS')
-                    clearHighlighting()
-
-                    setTimeout(()=>{
-                        data.navigationOptions.forEach(option=>{
-                            highlightOption(option)
-                        })
-                    },3000) //TODO fix this
-
-                
-                    response = guidanceSocket.makePayload('NAVIGATION_OPTIONS_SHOW_RESULT')
-                    response['pathsRequestId'] = data.pathsRequestId
-                    guidanceSocket.socket.send(JSON.stringify(response))
-
-                    break;
-                case "EXECUTE":
-
-                    
-                        switch(data.action){
-                            
-                            case "input":
-                                
-                                //TinyMCE input commands will specify an editor id.
-                                if (data.editorId !== undefined){
-                                    performInputTinymce(data.editorId, data.data)
-                                }else{
-                                    //Otherwise we're looking for an input element at a specific xpath to enter info into.
-                                    const inputXpath = data.xpath
-                                    var targetElement = getElementByXpath(inputXpath)
-
-                                    if(targetElement === undefined){
-                                        console.log("Could not find element to enter data into")
-                                    }
-
-                                    handleAlternateXpath(targetElement, data)
-                                        .then(_=>performInput(targetElement, data.data))
-                                        .catch(_=>handleUnresolvableXpath(data))
-                                }
-
-                                
-
-                                break;
-
-                            case "selectOption":
-                                
-                                var targetElement = getElementByXpath(data.xpath)
-                                
-                                if(targetElement === undefined){
-                                    console.log("Could not find element from which to select option")
-                                }
-                                handleAlternateXpath(targetElement, data)
-                                .then(_=>performSelect(targetElement, data.value))
-                                .catch(_=>handleUnresolvableXpath(data))
-                                
-
-                                break;
-                            case "queryDom":
-                                
-                                console.log("Got queryDom command!")
-
-                                let queryResults = await performDomQuery(data)
-                            
-                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                                response['pathsRequestId'] = data.pathsRequestId
-                                response['queryResults'] = queryResults
-                                response['sourceNodeId'] = data.sourceNodeId
-
-                                guidanceSocket.socket.send(JSON.stringify(response))
-                                
-
-                                
-
-                                break;
-                            case "click":
-                                console.log("Got click command to execute!")
-                                var clickXpath = data.xpath
-
-                                if (clickXpath.endsWith('/svg')){
-                                    console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
-                                    clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
-                                    console.log(`Adjusted xpath: ${clickXpath}`)
-                                }
-
-                                var targetElement = getElementByXpath(clickXpath)
-
-                                if(targetElement === undefined){
-                                    console.log("Could not find element to click!")
-                                    return
-                                }
-
-                                handleAlternateXpath(targetElement, data)
-                                .then(_=>{
-                                    console.log("Performing click on target element")
-                                    performClick(targetElement)
-                                })
-                                .catch(_=>handleUnresolvableXpath(data))
-
-                                break;
-                            case "getDOMSnapshot":
-
-                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                                response['domSnapshot'] = captureDOMSnapshot()
-                                
-                                guidanceSocket.socket.send(JSON.stringify(response))
-                                break;
-
-                            case "getUIControlState":
-
-                                let state = getUIControlState(data.xpath, data.uiControlType, data.editorId)
-                                response = guidanceSocket.makePayload('EXECUTION_RESULT')
-                                response['pathsRequestId'] = data.pathsRequestId
-                                response['uiControlType'] = data.uiControlType
-                                response['state'] = state
-
-                                guidanceSocket.socket.send(JSON.stringify(response))
-                                break;
-
-                            /**
-                             * Uncharted agents (e.g. OdoBot's Qwen3.8 agent) act on screenshot coordinates rather than xpaths. OdoBot sends the
-                             * action of one model step as an 'uncharted_step', with the action under 'unchartedAction'. No EXECUTION_RESULT is expected.
-                             */
-                            case "uncharted_step":
-                                await enqueueUnchartedWork(()=>performUnchartedStep(data))
-                                break;
-                            case "left_click":
-                            case "double_click":
-                            case "triple_click":
-                            case "type":
-                            case "key":
-                            case "scroll":
-                            case "hscroll":
-                            case "wait":
-                                await enqueueUnchartedWork(()=>performUnchartedAction(data))
-                                break;
-
-                        }
-                    
-                    
-                    
-
-
-                    break;
-            }
-        }catch(err){
-            console.log(err)
-        }
-
-        
-    },
-    onClose: async function(event){
-        console.log("[guidance.js] socket closed!")
-        guidanceSocket.socketPersistence()
-    },
-    shutdown: function(){
-        if(guidanceSocket.reconnectionReference){
-            clearInterval(guidanceSocket.reconnectionReference)
-            guidanceSocket.reconnectionReference = null;
-        }
-
-        guidanceSocket.socket.removeEventListener('close', guidanceSocket.onClose)
-        guidanceSocket.socket.removeEventListener('open', guidanceSocket.onOpen)
-        guidanceSocket.socket.removeEventListener('message', guidanceSocket.onMessage)
-        guidanceSocket.socket.removeEventListener('error', guidanceSocket.onError)
-        this.socket.close()
+    /**
+     * Answer a message from OdoBot.
+     */
+    reply: function(request, type, fields = {}){
+        return odoBot.send(type, Object.assign({}, fields, {replyTo: request.id}))
     }
 }
 
-//Bind an event listener to clean up the guidance socket before the page unloads.
-window.addEventListener('onbeforeunload', (event)=>{
-    guidanceSocket.shutdown()
-})
+/**
+ * Handle a message OdoBot sent on the guidance channel.
+ */
+async function handleGuidanceMessage(data){
+    try{
+        console.log(`[guidance.js] Got ${data.type}`, data)
 
-//Bind an event listener to process messages from main.js
-window.addEventListener("message", (event)=>{
-    if(event.source === window && 
-        event?.data?.origin === 'main.js'
-    ){
-        switch(event.data.type){
-            //When we receive the socket config create the guidance socket and bind handlers.
-            case "GUIDANCE_SOCKET_CONFIG":
-                try{
-                    console.log('Got guidance socket configuration')
-                    guidanceSocket.remoteHost = event.data.guidanceHost
-                    guidanceSocket.clientId = event.data.clientId
-    
-                    if(guidanceSocket.socket === undefined || guidanceSocket.socket.readyState !== 1){
-                        console.log("Creating guidance socket.")
-                        //Same URL as _GUIDANCE_SOCKET_URL in constants.js, which this page script cannot load.
-                        const socket = new WebSocket(`wss://${guidanceSocket.remoteHost}/?clientId=${encodeURIComponent(guidanceSocket.clientId)}&source=GuidanceSocket`)
-                        socket.addEventListener('open', guidanceSocket.onOpen )
-                        socket.addEventListener('error', guidanceSocket.onError)
-                        socket.addEventListener('message', guidanceSocket.onMessage )
-                        socket.addEventListener('close', guidanceSocket.onClose )
-        
-                        guidanceSocket.socket = socket
-                    }else{
-    
-                        console.log("Guidance socket exists")
-                        guidanceSocket.notifyReconnected()
-                    }
-                }catch(error){
-                    console.error("Error handling guidance socket config")
-                    console.error(error)
+        switch(data.type){
+            case "ALTERNATE_XPATH_CONFIRMED": {
+                //Resolve the promise waiting for this confirmation.
+                const resolve = odoBot.pendingReplies.get(data.replyTo)
+                odoBot.pendingReplies.delete(data.replyTo)
+
+                if(resolve !== undefined){
+                    resolve()
                 }
 
+                break;
+            }
+            case "PATH_COMPLETE":
+                clearHighlighting();
+                showPathComplete();
+                odoBot.reply(data, "PATH_COMPLETE_ACK")
+                break;
+            case "CLEAR_NAVIGATION_OPTIONS":
+                clearHighlighting();
+                odoBot.reply(data, "CLEAR_NAVIGATION_OPTIONS_RESULT")
+                break;
+            case "SHOW_NAVIGATION_OPTIONS":
+                console.log('Got SHOW_NAVIGATION_OPTIONS')
+                clearHighlighting()
+
+                setTimeout(()=>{
+                    data.navigationOptions.forEach(option=>{
+                        highlightOption(option)
+                    })
+                },3000) //TODO fix this
+
+                odoBot.reply(data, 'NAVIGATION_OPTIONS_SHOW_RESULT', {pathsRequestId: data.pathsRequestId})
+                break;
+            case "EXECUTE":
+
+                switch(data.action){
+
+                    case "input":
+
+                        //TinyMCE input commands will specify an editor id.
+                        if (data.editorId !== undefined){
+                            performInputTinymce(data.editorId, data.data)
+                        }else{
+                            //Otherwise we're looking for an input element at a specific xpath to enter info into.
+                            const inputXpath = data.xpath
+                            var targetElement = getElementByXpath(inputXpath)
+
+                            if(targetElement === undefined){
+                                console.log("Could not find element to enter data into")
+                            }
+
+                            handleAlternateXpath(targetElement, data)
+                                .then(_=>performInput(targetElement, data.data))
+                                .catch(_=>handleUnresolvableXpath(data))
+                        }
+
+                        break;
+
+                    case "selectOption":
+
+                        var targetElement = getElementByXpath(data.xpath)
+
+                        if(targetElement === undefined){
+                            console.log("Could not find element from which to select option")
+                        }
+                        handleAlternateXpath(targetElement, data)
+                        .then(_=>performSelect(targetElement, data.value))
+                        .catch(_=>handleUnresolvableXpath(data))
+
+                        break;
+                    case "queryDom": {
+
+                        console.log("Got queryDom command!")
+
+                        const queryResults = await performDomQuery(data)
+
+                        odoBot.reply(data, 'EXECUTION_RESULT', {
+                            pathsRequestId: data.pathsRequestId,
+                            queryResults: queryResults,
+                            sourceNodeId: data.sourceNodeId
+                        })
+
+                        break;
+                    }
+                    case "click":
+                        console.log("Got click command to execute!")
+                        var clickXpath = data.xpath
+
+                        if (clickXpath.endsWith('/svg')){
+                            console.log(`Original Xpath to click ends in /svg: ${clickXpath}`)
+                            clickXpath = clickXpath.substring(0, clickXpath.length - "/svg".length)
+                            console.log(`Adjusted xpath: ${clickXpath}`)
+                        }
+
+                        var targetElement = getElementByXpath(clickXpath)
+
+                        if(targetElement === undefined){
+                            console.log("Could not find element to click!")
+                            return
+                        }
+
+                        handleAlternateXpath(targetElement, data)
+                        .then(_=>{
+                            console.log("Performing click on target element")
+                            performClick(targetElement)
+                        })
+                        .catch(_=>handleUnresolvableXpath(data))
+
+                        break;
+                    case "getDOMSnapshot":
+
+                        odoBot.reply(data, 'EXECUTION_RESULT', {domSnapshot: captureDOMSnapshot()})
+                        break;
+
+                    case "getUIControlState":
+
+                        odoBot.reply(data, 'EXECUTION_RESULT', {
+                            pathsRequestId: data.pathsRequestId,
+                            uiControlType: data.uiControlType,
+                            state: getUIControlState(data.xpath, data.uiControlType, data.editorId)
+                        })
+                        break;
+
+                    /**
+                     * Uncharted agents (e.g. OdoBot's Qwen3.8 agent) act on screenshot coordinates rather than xpaths. OdoBot sends the
+                     * action of one model step as an 'uncharted_step', with the action under 'unchartedAction'. No EXECUTION_RESULT is expected.
+                     */
+                    case "uncharted_step":
+                        await enqueueUnchartedWork(()=>performUnchartedStep(data))
+                        break;
+                    case "left_click":
+                    case "double_click":
+                    case "triple_click":
+                    case "type":
+                    case "key":
+                    case "scroll":
+                    case "hscroll":
+                    case "wait":
+                        await enqueueUnchartedWork(()=>performUnchartedAction(data))
+                        break;
+
+                }
 
                 break;
-            case "GUIDANCE_SOCKET_START":
-                initGuidanceSocket();
-                
-                break;
-            case "GUIDANCE_SOCKET_STOP":
-                guidanceSocket.shutdown()
-                break;
         }
+    }catch(err){
+        console.log(err)
+    }
+}
+
+//Handle the messages OdoBot sends on the guidance channel, which main.js passes on.
+window.addEventListener("message", (event)=>{
+    if(event.source === window &&
+        event?.data?.origin === 'main.js' &&
+        event.data.type === 'GUIDANCE_MESSAGE'
+    ){
+        handleGuidanceMessage(event.data.message)
     }
 })
 
@@ -448,12 +338,12 @@ function getUIControlState(xpath, type, editorId){
 }
 
 function handleUnresolvableXpath(instructionData){
-    request = guidanceSocket.makePayload("UNRESOLVABLE_XPATH")
-    request['pathsRequestId'] = instructionData.pathsRequestId
-    request['sourceNodeId'] = instructionData.sourceNodeId
-    request['xpath'] = instructionData.xpath
-
-    guidanceSocket.socket.send(JSON.stringify(request))
+    odoBot.send("UNRESOLVABLE_XPATH", {
+        cause: instructionData.id,
+        pathsRequestId: instructionData.pathsRequestId,
+        sourceNodeId: instructionData.sourceNodeId,
+        xpath: instructionData.xpath
+    })
 }
 
 /**
@@ -480,15 +370,15 @@ function handleAlternateXpath(targetElement, instructionData){
 
     
     if (elementXpath !== serverXpath){
-        request = guidanceSocket.makePayload("REGISTER_ALTERNATE_XPATH")
-        request['pathsRequestId'] = pathsRequestId
-        request['sourceNodeId'] = sourceNodeId
-        request['alternateXpath'] = elementXpath
+        const request = odoBot.send("REGISTER_ALTERNATE_XPATH", {
+            cause: instructionData.id,
+            pathsRequestId: pathsRequestId,
+            sourceNodeId: sourceNodeId,
+            alternateXpath: elementXpath
+        })
 
-        //Register a promise for this request, so that we can resolve it when a response is recieved in the onMessage() function.
-        guidanceSocket.promises.set("REGISTER_ALTERNATE_XPATH," + elementXpath, resolve)
-
-        guidanceSocket.socket.send(JSON.stringify(request))
+        //Resolved when OdoBot answers with ALTERNATE_XPATH_CONFIRMED, see handleGuidanceMessage().
+        odoBot.pendingReplies.set(request.id, resolve)
     }else{
         resolve()
     }
@@ -2010,15 +1900,11 @@ function clearHighlighting(){
     })
 }
 
-function initGuidanceSocket(){
-    //Request socket config 
-    window.postMessage({
-        origin: 'guidance.js',
-        type: 'GET_GUIDANCE_SOCKET_CONFIG'
-    })
-}
-
-initGuidanceSocket();
+//Tell main.js guidance.js is ready for OdoBot's messages. It connects the page to OdoBot if guidance mode is on.
+window.postMessage({
+    origin: 'guidance.js',
+    type: 'GUIDANCE_READY'
+})
 
 function showPathComplete(){
     var sucessDiv = document.createElement("div")

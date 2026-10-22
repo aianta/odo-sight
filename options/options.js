@@ -1,53 +1,74 @@
 
-//Setup default logUI config if the current state is just an empty object
-stateManager.logUIConfig().then((currentConfig)=>{
-    if(Object.keys(currentConfig).length === 0){ //Check if the current config object is empty.
-        //If so, save the default logUI config.
-        stateManager.logUIConfig(_defaultConfig).then(_=>loadOptions())
-        
+/**
+ * The form is filled from OdoX's state asynchronously. Anything that types into it, such as OdoBot's harness through
+ * Selenium, must wait until it has been filled, or a late fill overwrites or garbles what was typed. So the form is
+ * filled exactly once, after OdoX's state has been initialized and the default LogUI config is in place, and then
+ * gets data-loaded="true". Likewise, it gets data-saved="true" once a save has been written to storage.
+ */
+async function initOptions(){
+    await stateManager.ready()
+
+    //Setup default logUI config if the current state is just an empty object
+    const currentConfig = await stateManager.logUIConfig().catch(_=>({}))
+    if(currentConfig === undefined || Object.keys(currentConfig).length === 0){
+        await stateManager.logUIConfig(_defaultConfig)
     }
-})
+
+    await loadOptions()
+    document.querySelector('form').dataset.loaded = 'true'
+}
 
 
-function saveOptions(e){
+async function saveOptions(e){
     e.preventDefault();
+    const form = document.querySelector('form')
+    form.dataset.saved = 'false'
 
     //Hide exisiting errors, hopefully they've been fixed.
     document.querySelector('.error-box').classList.remove('visible')
     document.querySelector('.error-box').classList.add('hidden')
 
 
-    
+    const writes = []
     try{
         let configValue = JSON.parse(document.querySelector('#logui-client-config').value)
-        stateManager.logUIConfig(configValue)
+        writes.push(stateManager.logUIConfig(configValue))
     }catch(error){
         console.error(error)
         showLogUIConfigError(error)
     }
 
 
-    stateManager.host(document.querySelector("#logui-server-host").value)
-    stateManager.guidanceHost(document.querySelector("#guidance-host").value)
-    stateManager.username(document.querySelector("#logui-server-username").value)
-    stateManager.password(document.querySelector('#logui-server-password').value)
-    stateManager.endpoint(document.querySelector('#logui-server-endpoint').value)
-    stateManager.targetHost(document.querySelector('#target-host').value)
-    stateManager.odoSightSupportHost(document.querySelector('#odo-sight-support-host').value)
+    writes.push(
+        stateManager.host(document.querySelector("#logui-server-host").value),
+        stateManager.guidanceHost(document.querySelector("#guidance-host").value),
+        stateManager.username(document.querySelector("#logui-server-username").value),
+        stateManager.password(document.querySelector('#logui-server-password').value),
+        stateManager.endpoint(document.querySelector('#logui-server-endpoint').value),
+        stateManager.targetHost(document.querySelector('#target-host').value),
+        stateManager.odoSightSupportHost(document.querySelector('#odo-sight-support-host').value)
+    )
 
-
+    await Promise.all(writes)
+    form.dataset.saved = 'true'
 }
 
+/**
+ * Fill the form from OdoX's state.
+ * @returns a promise that resolves once every field has been filled.
+ */
 function loadOptions(){
 
-    stateManager.host().then((host)=>{document.querySelector("#logui-server-host").value = host}, _=>{document.querySelector("#logui-server-host").value = ''})
-    stateManager.guidanceHost().then((guidanceHost)=>{document.querySelector("#guidance-host").value = guidanceHost},  _=>{document.querySelector("#guidance-host").value = ''})
-    stateManager.username().then((username)=>{document.querySelector("#logui-server-username").value = username},_=>{document.querySelector("#logui-server-username").value = ''})
-    stateManager.password().then((password)=>{document.querySelector('#logui-server-password').value = password},_=>{document.querySelector('#logui-server-password').value = ''})
-    stateManager.endpoint().then((endpoint)=>{document.querySelector('#logui-server-endpoint').value = endpoint},_=>{document.querySelector('#logui-server-endpoint').value = ''})
-    stateManager.logUIConfig().then((config)=>{document.querySelector('#logui-client-config').value = JSON.stringify(config, null, 4)})
-    stateManager.targetHost().then((targetHost)=>{document.querySelector('#target-host').value = targetHost},_=>{document.querySelector('#target-host').value = ''})
-    stateManager.odoSightSupportHost().then((odoSightSupportHost)=>{document.querySelector('#odo-sight-support-host').value = odoSightSupportHost}, _=>{document.querySelector('#odo-sight-support-host').value = ''})
+    return Promise.all([
+        stateManager.host().then((host)=>{document.querySelector("#logui-server-host").value = host}, _=>{document.querySelector("#logui-server-host").value = ''}),
+        stateManager.guidanceHost().then((guidanceHost)=>{document.querySelector("#guidance-host").value = guidanceHost},  _=>{document.querySelector("#guidance-host").value = ''}),
+        stateManager.username().then((username)=>{document.querySelector("#logui-server-username").value = username},_=>{document.querySelector("#logui-server-username").value = ''}),
+        stateManager.password().then((password)=>{document.querySelector('#logui-server-password').value = password},_=>{document.querySelector('#logui-server-password').value = ''}),
+        stateManager.endpoint().then((endpoint)=>{document.querySelector('#logui-server-endpoint').value = endpoint},_=>{document.querySelector('#logui-server-endpoint').value = ''}),
+        stateManager.logUIConfig().then((config)=>{document.querySelector('#logui-client-config').value = JSON.stringify(config, null, 4)}, _=>{}),
+        stateManager.targetHost().then((targetHost)=>{document.querySelector('#target-host').value = targetHost},_=>{document.querySelector('#target-host').value = ''}),
+        stateManager.odoSightSupportHost().then((odoSightSupportHost)=>{document.querySelector('#odo-sight-support-host').value = odoSightSupportHost}, _=>{document.querySelector('#odo-sight-support-host').value = ''})
+    ])
 }
 
 function showLogUIConfigError(message){
@@ -58,5 +79,7 @@ function showLogUIConfigError(message){
 }
 
 
-document.addEventListener('DOMContentLoaded', loadOptions)
+document.addEventListener('DOMContentLoaded', ()=>{
+    initOptions().catch(err=>console.error('Could not load the options', err))
+})
 document.querySelector("form").addEventListener("submit", saveOptions);

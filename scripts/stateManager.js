@@ -341,7 +341,23 @@ var stateManager = (function(){
 
 
     /**
-     * 
+     * Wait until the background has initialized OdoX's state, see init(). Until then the state may still be cleared and
+     * replaced by the defaults, so anything written before is lost.
+     * @param {number} timeoutMs how long to wait at most. After that the promise resolves anyway.
+     */
+    _public.ready = async function(timeoutMs = 10000){
+        const deadline = Date.now() + timeoutMs
+        while(!(await stateValid())){
+            if(Date.now() > deadline){
+                console.warn("OdoX's state was not initialized in time, carrying on.")
+                return
+            }
+            await new Promise(resolve=>setTimeout(resolve, 100))
+        }
+    }
+
+    /**
+     *
      * @returns true if the stored state version matches the expected valid state version in constants.js
      */
     function stateValid(){

@@ -1,52 +1,8 @@
 
-//Close the controls socket on unload
-browser.runtime.onSuspend.addListener(_=>{controlSocket.shutdown()})
-
-
 /**
- * Tasks are started and stopped by OdoBot. The control socket identifies this OdoX instance to OdoBot, which waits for it
- * (and the event socket) to connect before it considers the client ready.
+ * Bot mode. Tasks are started and stopped by OdoBot. Turning 'guidanceMode' on makes the background connect OdoX to
+ * OdoBot (odoBotSocket.js), so this page only sets the extension up for bot mode.
  */
-const controlSocket = {
-    socket: undefined,
-    makePayload: async function(type){
-        return {
-            clientId: await stateManager.clientId(),
-            source: 'ControlSocket',
-            type: type
-        }
-    },
-    notifyReconnected: async function(){
-        const payload = await this.makePayload('NOTIFY_RECONNECT')
-
-        controlSocket.socket.send(JSON.stringify(payload))
-    },
-    onOpen: async function(event){
-        console.log(`[bot.js] Controls socket opened!`)
-
-        controlSocket.notifyReconnected();
-    },
-    onError: async function(error){
-
-    },
-    onMessage: async function(msg){
-
-    },
-    onClose: async function(event){
-
-    },
-    shutdown: function(){
-        controlSocket.socket.removeEventListener('open', controlSocket.onOpen)
-        controlSocket.socket.removeEventListener('close', controlSocket.onClose)
-        controlSocket.socket.removeEventListener('message', controlSocket.onMessage)
-        controlSocket.socket.removeEventListener('error', controlSocket.onError)
-        this.socket.close()
-    }
-}
-
-
-
-
 Promise.all([
     stateManager.boundDispatcher(),
     stateManager.shouldRecord(),
@@ -72,32 +28,7 @@ Promise.all([
         stateManager.boundDispatcher('local') //Set it to local
     }
 
-    initControlSocket()
-
-
-
 })
-
-function initControlSocket(){
-    return Promise.all([
-        stateManager.guidanceHost(),
-        stateManager.clientId()
-    ]).then(results=>{
-        const guidanceHost = results[0]
-        const clientId = results[1]
-
-    const socket = new WebSocket(_GUIDANCE_SOCKET_URL(guidanceHost, clientId, 'ControlSocket'))
-    socket.addEventListener('open', controlSocket.onOpen )
-    socket.addEventListener('error', controlSocket.onError)
-    socket.addEventListener('message', controlSocket.onMessage )
-    socket.addEventListener('close', controlSocket.onClose )
-
-    controlSocket.socket = socket
-
-    return Promise.resolve(socket)
-
-    })
-}
 
 //Self-signed ssl check
 services.guidanceConnectionCheck().then(

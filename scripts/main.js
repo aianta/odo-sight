@@ -90,11 +90,11 @@ function observeStateChange(changes){
     console.log(changes)
 
     if('guidanceMode' in changes && !changes['guidanceMode'].newValue){
-        stopGuidanceSocket()
+        disconnectGuidancePort()
     }
 
     if('guidanceMode' in changes  && changes['guidanceMode'].newValue){
-        startGuidanceSocket()
+        connectGuidancePort()
     }
 
     //If the new 'shouldRecord' value is false, stop the LogUI client
@@ -162,63 +162,80 @@ window.addEventListener("message", (event)=>{
             }
 
         }
-    if(event.source == window && 
+    if(event.source == window &&
         event?.data?.origin === "guidance.js"){
-            console.log('got config request from guidance.js')
             switch(event.data.type){
-                case "GET_GUIDANCE_SOCKET_CONFIG":
-                    //First check if guidance mode is on. 
-                    stateManager.guidanceMode().then(_guidance_mode=>{
-                        if (_guidance_mode){
-                            gatherAndSendGuidanceSocketConfig()
-                        }
-                    })
-                    //gatherAndSendGuidanceSocketConfig()                    
+                case "GUIDANCE_READY":
+                    guidanceScriptReady = true
+                    connectGuidancePort()
+                    break;
+                case "GUIDANCE_MESSAGE":
+                    //Messages sent while there is no port, e.g. with guidance mode off, have nowhere to go.
+                    if(guidancePort !== null){
+                        guidancePort.postMessage(event.data.message)
+                    }
                     break;
             }
         }
+})
+
+/**
+ * The bridge between guidance.js and OdoBot. guidance.js runs in the page, where page CSP can block connections to
+ * OdoBot, so its messages go through a port to the background (guidanceRelay.js), which sends them over OdoX's socket
+ * to OdoBot. The port is open while guidance mode is on and guidance.js has loaded, and its disconnect tells the
+ * background the page is gone.
+ */
+var guidancePort = null
+var guidanceScriptReady = false
+
+function connectGuidancePort(){
+    if(guidancePort !== null || !guidanceScriptReady){
+        return
+    }
+
+    stateManager.guidanceMode().then(_guidanceMode=>{
+        if(!_guidanceMode || guidancePort !== null){
+            return
+        }
+
+        const port = browser.runtime.connect({name: _GUIDANCE_PORT_NAME})
+        port.onMessage.addListener(message=>{
+            window.postMessage({
+                origin: 'main.js',
+                type: 'GUIDANCE_MESSAGE',
+                message: message
+            })
+        })
+        port.onDisconnect.addListener(()=>{
+            if(guidancePort === port){
+                guidancePort = null
+            }
+        })
+        guidancePort = port
+    }).catch(err=>console.error('Error while connecting guidance.js to OdoBot: ', err))
+}
+
+function disconnectGuidancePort(){
+    if(guidancePort === null){
+        return
+    }
+    const port = guidancePort
+    guidancePort = null
+    port.disconnect()
+}
+
+//Tell the background the page is gone as soon as it is hidden, and reconnect if it comes back from the back/forward cache.
+window.addEventListener('pagehide', ()=>disconnectGuidancePort())
+window.addEventListener('pageshow', (event)=>{
+    if(event.persisted){
+        connectGuidancePort()
+    }
 })
 
 function sendCacheOverflowError(){
     window.postMessage({
         origin: 'main.js',
         type: 'LOGUI_CACHE_OVERFLOW'
-    })
-}
-
-function gatherAndSendGuidanceSocketConfig(){
-    Promise.all([
-        stateManager.guidanceHost(),
-        stateManager.clientId()
-    ]).then(values=>{
-        const guidanceHost = values[0]
-        const clientId = values[1]
-        sendGuidanceSocketConfig( guidanceHost, clientId)
-    },
-    err=>console.log('Error while gather guidance socket config: ',err)
-)
-}
-
-function startGuidanceSocket(){
-    window.postMessage({
-        origin: 'main.js',
-        type: 'GUIDANCE_SOCKET_START'
-    })
-}
-
-function stopGuidanceSocket(){
-    window.postMessage({
-        origin: 'main.js',
-        type: 'GUIDANCE_SOCKET_STOP'
-    })
-}
-
-function sendGuidanceSocketConfig( guidanceHost, clientId){
-    window.postMessage({
-        origin: 'main.js',
-        type: "GUIDANCE_SOCKET_CONFIG",
-        clientId: clientId,
-        guidanceHost: guidanceHost
     })
 }
 

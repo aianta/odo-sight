@@ -32,6 +32,8 @@
             "/libs/axios.min.js",
             "/scripts/stateManager.js",
             "/scripts/websocketDispatcher.js",
+            "/scripts/odoBotSocket.js",
+            "/scripts/guidanceRelay.js",
             "/scripts/guidanceConnector.js",
             "/scripts/background.js",
             "/scripts/init.js"
