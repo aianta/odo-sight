@@ -26,7 +26,7 @@ if([System.IO.file]::Exists($local_xpi_path)){
 }
 
 # exclusion rules. Can use wild cards (*)
-$exclude = @("node_modules", ".vscode", ".git", ".gitignore")
+$exclude = @("node_modules", ".vscode", ".git", ".gitignore", "test")
 
 # get files to compress using exclusion filter
 $files = Get-ChildItem -Path $path -Exclude $exclude

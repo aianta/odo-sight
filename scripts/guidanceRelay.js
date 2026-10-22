@@ -5,30 +5,44 @@
  * main.js, the content script next to it, opens a port to this relay once guidance.js has loaded, and the relay passes
  * messages between that port and OdoX's socket to OdoBot (odoBotSocket.js).
  *
- * Guidance messages go to the page in the active tab, the tab whose screenshots OdoBot gets. That page is the target.
- * While there is no target, e.g. while the page navigates, guidance messages are held:
- *  - OdoBot holds them, as it is told with PAGE_GONE and PAGE_READY when the target goes and comes.
- *  - The relay holds the ones that were already on their way when the target went, and delivers them to the next target
- *    before telling OdoBot it is ready, so they keep their order.
+ * Every page that connects gets a pageId. Guidance messages go to the page in the active tab, the tab whose screenshots
+ * OdoBot gets. That page is the target, and OdoBot is told its pageId with PAGE_READY, and that it is gone with PAGE_GONE.
+ *
+ * OdoBot addresses each message to a page by its pageId. The relay never holds messages: a message for the target is
+ * delivered to it, and a message for any other page, e.g. one that went away while the message was on its way, is
+ * answered with NOT_DELIVERED. OdoBot decides what to do then; it is the only place guidance messages wait.
+ *
+ * Messages from a page are stamped with its pageId, and only the types a page sends are passed on.
  */
 var GuidanceRelay = (function(){
     var _public = {}
 
-    var _ports = new Map() //The ports of the pages that are ready, by tab id.
-    var _target = null //The page guidance messages go to: {tabId, port}, or null.
-    var _buffer = [] //Guidance messages that arrived while there was no target.
-    var _maxBufferSize = 1000
+    var _ports = new Map() //The ports of the pages that are ready, by tab id: {port, pageId}.
+    var _target = null //The page guidance messages go to: {tabId, port, pageId}, or null.
 
     var _updating = Promise.resolve() //Target updates run one at a time, see updateTarget().
 
     /**
-     * Reset the relay when guidance mode is turned off: disconnect every page and drop the messages held for them.
+     * The message types a page sends to OdoBot. Anything else from a page is dropped: a page must not be able to report
+     * page state or answer for the relay.
+     */
+    var _PAGE_MESSAGE_TYPES = new Set([
+        'EXECUTE_DONE',
+        'EXECUTION_RESULT',
+        'REGISTER_ALTERNATE_XPATH',
+        'UNRESOLVABLE_XPATH',
+        'PATH_COMPLETE_ACK',
+        'NAVIGATION_OPTIONS_SHOW_RESULT',
+        'CLEAR_NAVIGATION_OPTIONS_RESULT'
+    ])
+
+    /**
+     * Reset the relay when guidance mode is turned off: disconnect every page.
      */
     _public.stop = function(){
-        _ports.forEach(port=>port.disconnect())
+        _ports.forEach(({port})=>port.disconnect())
         _ports.clear()
         _target = null
-        _buffer = []
     }
 
     function onConnect(port){
@@ -44,17 +58,18 @@ var GuidanceRelay = (function(){
         }
 
         //A tab has one page, so a new port replaces any old one.
-        const oldPort = _ports.get(tabId)
-        if(oldPort !== undefined){
-            oldPort.disconnect()
-            if(_target !== null && _target.port === oldPort){
+        const old = _ports.get(tabId)
+        if(old !== undefined){
+            old.port.disconnect()
+            if(_target !== null && _target.port === old.port){
                 _target = null
             }
         }
 
-        _ports.set(tabId, port)
-        port.onMessage.addListener(message=>onPageMessage(message))
-        port.onDisconnect.addListener(()=>onPortGone(tabId, port))
+        const page = {port: port, pageId: crypto.randomUUID()}
+        _ports.set(tabId, page)
+        port.onMessage.addListener(message=>onPageMessage(page, message))
+        port.onDisconnect.addListener(()=>onPortGone(tabId, page))
 
         updateTarget()
     }
@@ -69,14 +84,14 @@ var GuidanceRelay = (function(){
         }
     }
 
-    function onPortGone(tabId, port){
-        if(_ports.get(tabId) === port){
+    function onPortGone(tabId, page){
+        if(_ports.get(tabId) === page){
             _ports.delete(tabId)
         }
 
-        if(_target !== null && _target.port === port){
+        if(_target !== null && _target.port === page.port){
             _target = null
-            sendPageState('PAGE_GONE', {tabId: tabId, reason: 'unload'})
+            sendPageState('PAGE_GONE', {tabId: tabId, pageId: page.pageId, reason: 'unload'})
         }
 
         updateTarget()
@@ -90,64 +105,60 @@ var GuidanceRelay = (function(){
             .then(()=>browser.tabs.query({active: true, lastFocusedWindow: true}))
             .then(tabs=>{
                 const tabId = tabs[0]?.id
-                const port = tabId === undefined? undefined : _ports.get(tabId)
+                const page = tabId === undefined? undefined : _ports.get(tabId)
 
-                if(_target !== null && _target.port === port){
+                if(_target !== null && page !== undefined && _target.port === page.port){
                     return
                 }
 
                 if(_target !== null){
-                    sendPageState('PAGE_GONE', {tabId: _target.tabId, reason: 'tab-switch'})
+                    sendPageState('PAGE_GONE', {tabId: _target.tabId, pageId: _target.pageId, reason: 'tab-switch'})
                     _target = null
                 }
 
-                if(port !== undefined){
-                    _target = {tabId: tabId, port: port}
-
-                    //Deliver what arrived while there was no target before OdoBot sends anything it held.
-                    const held = _buffer
-                    _buffer = []
-                    held.forEach(message=>port.postMessage(message))
-
-                    sendPageState('PAGE_READY', {tabId: tabId, url: port.sender?.url})
+                if(page !== undefined){
+                    _target = {tabId: tabId, port: page.port, pageId: page.pageId}
+                    sendPageState('PAGE_READY', {tabId: tabId, pageId: page.pageId, url: page.port.sender?.url})
                 }
             })
             .catch(err=>console.error("[guidanceRelay.js] Failed to update the target page", err))
     }
 
     /**
-     * A message from OdoBot for the page.
+     * A message from OdoBot for a page. It is delivered only if it is addressed to the target.
      */
     function onOdoBotMessage(message){
-        if(_target !== null){
+        if(_target !== null && message.pageId === _target.pageId){
             _target.port.postMessage(message)
             return
         }
 
-        console.log(`[guidanceRelay.js] No page is ready, holding ${message.type}`)
-        _buffer.push(message)
-        if(_buffer.length > _maxBufferSize){
-            _buffer.shift()
-        }
+        const reason = message.pageId === undefined? 'unaddressed' : (_target === null? 'no-page' : 'other-page')
+        console.log(`[guidanceRelay.js] Could not deliver ${message.type} for page ${message.pageId} (${reason})`)
+        OdoBotSocket.reply(message, 'NOT_DELIVERED', {pageId: message.pageId, reason: reason})
     }
 
     /**
-     * A message from the page for OdoBot. Its id, replyTo and cause are kept.
+     * A message from a page for OdoBot. Its id, replyTo and cause are kept, and it is stamped with the page's pageId.
      */
-    function onPageMessage(message){
+    function onPageMessage(page, message){
         if(message === null || typeof message !== 'object' || typeof message.type !== 'string'){
             console.warn("[guidanceRelay.js] Dropping a malformed message from the page", message)
             return
         }
-        OdoBotSocket.send('guidance', message.type, message)
+        if(!_PAGE_MESSAGE_TYPES.has(message.type)){
+            console.warn(`[guidanceRelay.js] Dropping a ${message.type} from the page, which pages don't send`)
+            return
+        }
+        OdoBotSocket.send('guidance', message.type, Object.assign({}, message, {pageId: page.pageId}))
     }
 
     /**
-     * OdoBot forgets whether the page is ready when the socket drops, so tell it again once the socket is back.
+     * OdoBot forgets the page when the socket drops, so tell it again once the socket is back.
      */
     function onSocketOpen(){
         if(_target !== null){
-            sendPageState('PAGE_READY', {tabId: _target.tabId, url: _target.port.sender?.url})
+            sendPageState('PAGE_READY', {tabId: _target.tabId, pageId: _target.pageId, url: _target.port.sender?.url})
         }
     }
 

@@ -27,7 +27,7 @@ _ODO_BOT_SIGHT_SCRAPE_MONGO_PATH = "/odo-sight/scrape-mongo/v2"
 /**
  * The version of the protocol OdoX speaks with OdoBot, see odoBotSocket.js. OdoBot refuses sockets of any other version.
  */
-_ODOBOT_PROTOCOL_VERSION = 2
+_ODOBOT_PROTOCOL_VERSION = 3
 
 /**
  * The URL of OdoX's socket to OdoBot. The clientId and protocol in the query let OdoBot bind the socket to its OdoClient

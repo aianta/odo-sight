@@ -9,6 +9,8 @@
  *   id       unique per message, set by its sender.
  *   replyTo  on a reply, the id of the message it answers.
  *   cause    on guidance feedback OdoX sends unasked, e.g. UNRESOLVABLE_XPATH, the id of the EXECUTE it is about.
+ *   pageId   on guidance messages, the page a message from OdoBot is addressed to, or the page a message to OdoBot came
+ *            from. guidanceRelay.js answers a message for a page that isn't the target with NOT_DELIVERED.
  * plus the fields of the message type.
  *
  * Messages sent while the socket is down wait for it to open, unless guidance mode is off, in which case they are
