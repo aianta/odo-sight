@@ -7,11 +7,12 @@ const vm = require('node:vm')
 
 /**
  * @param {string} script the file name in scripts/.
- * @param {object} options activeTabId: the tab browser.tabs.query reports active.
+ * @param {object} options activeTabId: the tab browser.tabs.query reports active. globals: more globals for the script,
+ * which replace the stubs here.
  * @returns the sandbox, plus what the script registered: listeners (by event), handlers (OdoBotSocket.on, by channel),
  * openCallbacks (OdoBotSocket.onOpen), and sent (every message it sent through OdoBotSocket, in order).
  */
-function loadScript(script, {activeTabId = 1} = {}){
+function loadScript(script, {activeTabId = 1, globals = {}} = {}){
     const listeners = {connect: [], activated: [], focusChanged: [], storageChanged: []}
     const handlers = {}
     const openCallbacks = []
@@ -47,6 +48,7 @@ function loadScript(script, {activeTabId = 1} = {}){
         },
         OdoBotSocket: OdoBotSocket
     }
+    Object.assign(sandbox, globals)
 
     vm.createContext(sandbox)
     const file = path.join(__dirname, '..', 'scripts', script)

@@ -28,6 +28,7 @@ var GuidanceConnector = (function() {
     var _libraryStartTimestamp = null;
     var _cache = [];
     var _transmit = false;
+    var _seq = 0; //The number of the next event sent to OdoBot. OdoBot detects lost events by gaps in these numbers.
 
 
     _public.dispatcherType = 'guidance';
@@ -64,8 +65,11 @@ var GuidanceConnector = (function() {
      */
     var eventChannel = {
         sendEvent: async function(event){
+            const pathsRequestId = await stateManager.activePathsRequestId()
+            //Numbered as it is sent, so the numbers follow the order OdoBot receives events in.
             OdoBotSocket.send('event', 'EVENT', {
-                pathsRequestId: await stateManager.activePathsRequestId(),
+                seq: _seq++,
+                pathsRequestId: pathsRequestId,
                 event: event
             })
         },
@@ -114,6 +118,7 @@ var GuidanceConnector = (function() {
                             console.error("[guidanceConnector.js] Failed to capture the tab for the Observation", err)
                             return _public.packageObservation(undefined, undefined)
                         })
+                    _seq = 0 //The events of a transmission are numbered from 0, starting with the Observation.
                     const observationSent = eventChannel.sendEvent(observation)
                         .catch(err=>console.error("[guidanceConnector.js] Failed to send the Observation", err))
                     _cache = [] //Events recorded before transmission started are not sent.

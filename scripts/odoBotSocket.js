@@ -14,7 +14,8 @@
  * plus the fields of the message type.
  *
  * Messages sent while the socket is down wait for it to open, unless guidance mode is off, in which case they are
- * dropped.
+ * dropped. If more than _maxOutboxSize wait, the oldest are dropped, and OdoBot is told how many with an EVENT_GAP
+ * message as soon as the socket opens, so the task's event log shows that events are missing.
  */
 var OdoBotSocket = (function(){
     var _public = {}
@@ -30,6 +31,7 @@ var OdoBotSocket = (function(){
 
     var _outbox = [] //Messages waiting for the socket to open.
     var _maxOutboxSize = 1000 //When the outbox is full, the oldest message is dropped.
+    var _dropped = new Map() //How many messages were dropped from the full outbox since it was last emptied, by 'channel/type'.
 
     function isOpen(){
         return _socket !== null && _socket.readyState === WebSocket.OPEN
@@ -62,7 +64,9 @@ var OdoBotSocket = (function(){
         }else{
             _outbox.push(message)
             if(_outbox.length > _maxOutboxSize){
-                _outbox.shift()
+                const dropped = _outbox.shift()
+                const key = `${dropped.channel}/${dropped.type}`
+                _dropped.set(key, (_dropped.get(key) ?? 0) + 1)
             }
         }
         return message
@@ -105,6 +109,7 @@ var OdoBotSocket = (function(){
     _public.stop = function(){
         _enabled = false
         _outbox = []
+        _dropped = new Map()
 
         if(_reconnectionReference !== null){
             clearTimeout(_reconnectionReference)
@@ -174,6 +179,15 @@ var OdoBotSocket = (function(){
                 console.error("[odoBotSocket.js] Socket open callback failed", err)
             }
         })
+
+        //Tell OdoBot what was dropped before what waited goes out, so the gap sits where the messages are missing.
+        if(_dropped.size > 0){
+            const droppedTypes = Object.fromEntries(_dropped)
+            const dropped = Array.from(_dropped.values()).reduce((total, count)=>total + count, 0)
+            _dropped = new Map()
+            console.warn(`[odoBotSocket.js] Dropped ${dropped} message(s) while the socket was down`, droppedTypes)
+            _public.send('event', 'EVENT_GAP', {dropped: dropped, droppedTypes: droppedTypes, reason: 'outbox-overflow'})
+        }
 
         const waiting = _outbox
         _outbox = []
