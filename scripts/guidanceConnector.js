@@ -50,6 +50,31 @@ var GuidanceConnector = (function() {
     }
 
     /**
+     * Observes the active tab of the current window: captures it and takes its page's DOM snapshot at the same time, so
+     * the two show the same moment.
+     * @returns {Promise<{screenshot: string, url: string, domSnapshot: string|null}>} as _captureActiveTab, and the page's
+     * DOM snapshot, a JSON string of {outerHTML, outerText}, or null if the page couldn't give one.
+     */
+    var _observeActiveTab = async function(){
+        const currentWindow = await browser.windows.getCurrent({populate: true})
+        const activeTab = currentWindow.tabs.find(tab=>tab.active)
+        const domSnapshot = activeTab === undefined? Promise.resolve(null) :
+            browser.tabs.sendMessage(activeTab.id, {type: 'GET_DOM_SNAPSHOT'}, {frameId: 0})
+                .then(reply=>reply?.domSnapshot ?? null)
+                .catch(err=>{
+                    console.error("[guidanceConnector.js] Failed to take the page's DOM snapshot, observing without one", err)
+                    return null
+                })
+        const imageUrl = await browser.tabs.captureVisibleTab(currentWindow.id, {format: 'png'})
+        const imageBytes = await fetch(imageUrl).then(response=>response.arrayBuffer())
+        return {
+            screenshot: new Uint8Array(imageBytes).toBase64(),
+            url: activeTab?.url,
+            domSnapshot: await domSnapshot
+        }
+    }
+
+    /**
      * Whether an event gets a screenshot: interaction events, and TinyMCE edits, which LogUI sends as INPUT_CHANGE custom events.
      */
     var _hasScreenshot = function(objectToSend){
@@ -78,12 +103,14 @@ var GuidanceConnector = (function() {
             switch(data.type){
                 case "GET_SCREENSHOT":
 
-                    //OdoBot asks for a screenshot once the page has settled after an uncharted step.
-                    _captureActiveTab()
-                        .then(({screenshot, url})=>{
+                    //OdoBot asks for a screenshot once the page has settled after an uncharted step, and gets the
+                    //page's DOM snapshot with it.
+                    _observeActiveTab()
+                        .then(({screenshot, url, domSnapshot})=>{
                             OdoBotSocket.reply(data, 'SCREENSHOT', {
                                 screenshot: screenshot,
-                                userLocation: url
+                                userLocation: url,
+                                domSnapshot: domSnapshot
                             })
                         })
                         .catch(err=>console.error("[guidanceConnector.js] Failed to capture a screenshot", err))
@@ -112,11 +139,11 @@ var GuidanceConnector = (function() {
                      * captured first. Then queueing the Observation, clearing the cache and switching transmission on happen in
                      * one synchronous step, so no event is sent ahead of the Observation.
                      */
-                    const observation = await _captureActiveTab()
-                        .then(({screenshot, url})=>_public.packageObservation(url, screenshot))
+                    const observation = await _observeActiveTab()
+                        .then(({screenshot, url, domSnapshot})=>_public.packageObservation(url, screenshot, domSnapshot))
                         .catch(err=>{
                             console.error("[guidanceConnector.js] Failed to capture the tab for the Observation", err)
-                            return _public.packageObservation(undefined, undefined)
+                            return _public.packageObservation(undefined, undefined, undefined)
                         })
                     _seq = 0 //The events of a transmission are numbered from 0, starting with the Observation.
                     const observationSent = eventChannel.sendEvent(observation)
@@ -236,8 +263,9 @@ var GuidanceConnector = (function() {
      * uncharted steps itself, from GET_SCREENSHOT.
      * @param userLocation the url in the address bar.
      * @param screenshot a base64 encoded PNG of the visible part of the page.
+     * @param domSnapshot the page's DOM snapshot, a JSON string of {outerHTML, outerText}, taken with the screenshot.
      */
-    _public.packageObservation = function(userLocation, screenshot){
+    _public.packageObservation = function(userLocation, screenshot, domSnapshot){
         let packageObject = _public.getBasicPackageObject()
 
         packageObject.eventType = 'customEvent'
@@ -245,7 +273,8 @@ var GuidanceConnector = (function() {
             name: 'OBSERVATION',
             trigger: 'START_TRANSMISSION',
             userLocation: userLocation,
-            screenshot: screenshot
+            screenshot: screenshot,
+            domSnapshot: domSnapshot
         }
 
         return packageObject

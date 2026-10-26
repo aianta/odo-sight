@@ -6349,8 +6349,39 @@ var LogUI = (function () {
 	*/
 	var EventCallbackHandler = (function (root) {
 	  var _public = {};
+	  /**
+	   * @author Alexandru Ianta
+	   * Maps each browser event to the innermost element on its path that LogUI tracks for that event type.
+	   * Listeners are bound on every tracked element in the capture phase, so a click on <li><a><span> reaches
+	   * three LogUI listeners. Only the listener on the innermost tracked element logs the event; the others
+	   * return without touching the event, so application listeners still see it as before.
+	   *
+	   * Known gap: if the page has a capture listener on an ancestor of the innermost tracked element that calls
+	   * stopPropagation(), the event never reaches that element and is not logged at all. Before this check the
+	   * tracked ancestors above that point would still have logged it. Odo Sight's handlerMagic.js puts LogUI's
+	   * listener first on each element, so a page listener on the innermost tracked element itself does not cause this.
+	   */
+
+	  var _eventOwners = new WeakMap();
+
+	  var _getEventOwner = function _getEventOwner(browserEvent) {
+	    if (!_eventOwners.has(browserEvent)) {
+	      var owner = browserEvent.composedPath().find(function (element) {
+	        var properties = Config.DOMProperties.get(element);
+	        return properties && properties.getEventGroupName(browserEvent.type);
+	      });
+
+	      _eventOwners.set(browserEvent, owner || null);
+	    }
+
+	    return _eventOwners.get(browserEvent);
+	  };
 
 	  _public.logUIEventCallback = function (browserEvent) {
+	    if (_getEventOwner(browserEvent) !== browserEvent.currentTarget) {
+	      return; // A deeper tracked element on this event's path logs it instead.
+	    }
+
 	    browserEvent._eventTime = performance.now();
 	    console.log('EVENT TIME: ', browserEvent.timeStamp);
 	    var elementDOMProperties = Config.DOMProperties.get(browserEvent.currentTarget); // console.log("Event happened");
@@ -6378,7 +6409,13 @@ var LogUI = (function () {
 	    }
 
 	    var groupName = elementDOMProperties.getEventGroupName(browserEvent.type);
-	    var trackingConfig = Config.elementTrackingConfig.getElementGroup(groupName);
+	    var trackingConfig = Config.elementTrackingConfig.getElementGroup(groupName); // A group with ignore: true keeps its elements tracked, so they own their events, but logs nothing for them.
+	    // Odo Sight uses this to exclude clicks on elements whose interaction it captures as another event.
+
+	    if (trackingConfig.ignore) {
+	      return;
+	    }
+
 	    var eventHandler = EventHandlerController.getEventHandler(trackingConfig.event);
 	    var packageEvent = false;
 
@@ -7225,7 +7262,7 @@ var LogUI = (function () {
 
 	  _public.buildVersion = '0.5.4a';
 	  _public.buildEnvironment = 'production';
-	  _public.buildDate = 'Mon Sep 28 2026 15:14:22 GMT-0600 (Mountain Daylight Time)';
+	  _public.buildDate = 'Mon Oct 26 2026 15:02:23 GMT-0600 (Mountain Daylight Time)';
 	  _public.Config = Config;
 	  root.addEventListener('message', handleWindowMessages);
 	  console.log("Hello from LogUI inside ".concat(root.location, "!"));

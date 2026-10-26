@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "node --test test/guidanceRelay.test.js test/guidance.test.js test/odoBotSocket.test.js"
+    "test": "node --test test/guidanceRelay.test.js test/guidance.test.js test/odoBotSocket.test.js test/guidanceConnector.test.js"
   },
   "dependencies": {
     "web-ext": "^7.12.0"

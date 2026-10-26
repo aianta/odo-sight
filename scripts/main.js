@@ -232,6 +232,32 @@ window.addEventListener('pageshow', (event)=>{
     }
 })
 
+/**
+ * The DOM snapshot of an Observation, filtered as LogUI and dom-effects.js filter theirs, in their format: a JSON string of
+ * {outerHTML, outerText}. It is taken here, in the content script, rather than in guidance.js, since main.js is in every
+ * page from document_start, whether or not guidance.js has connected.
+ */
+function captureObservationDOMSnapshot(){
+    const fullHtml = document.documentElement.outerHTML
+    const noScripts = fullHtml.replaceAll(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    const noXMLCDATA = noScripts.replaceAll(/<!\[CDATA[\s\S]*\]\]>/gi, "")
+    const noStyle = noXMLCDATA.replaceAll(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    const noSvgPaths = noStyle.replaceAll(/<path[\s\S]*?>[\s\S]*?<\/path>/gi, "")
+
+    return JSON.stringify({
+        outerHTML: noSvgPaths,
+        outerText: document.documentElement.outerText
+    })
+}
+
+//The background asks for the page's DOM snapshot while it captures the tab for an Observation, see guidanceConnector.js.
+browser.runtime.onMessage.addListener((message)=>{
+    if(message?.type === 'GET_DOM_SNAPSHOT'){
+        return Promise.resolve({domSnapshot: captureObservationDOMSnapshot()})
+    }
+    return undefined
+})
+
 function sendCacheOverflowError(){
     window.postMessage({
         origin: 'main.js',

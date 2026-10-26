@@ -691,7 +691,7 @@ let unchartedQueue = Promise.resolve()
 function enqueueUnchartedWork(work){
     const outcome = unchartedQueue
         .then(work)
-        .then(()=>executionOk(), err=>{
+        .then(result=>Object.assign(executionOk(), result ?? {}), err=>{
             console.error('[guidance.js] Uncharted work failed', err)
             return executionFailed(err?.message ?? String(err))
         })
@@ -705,17 +705,23 @@ function unchartedSleep(ms){
 
 /**
  * A step holds exactly one action. OdoBot observes its result itself, once the page has settled.
+ * @returns what to add to the step's EXECUTE_DONE, see performUnchartedAction.
  */
 async function performUnchartedStep(step){
     console.log(`[guidance.js] Uncharted step ${step.step}: ${step.lowLevelInstruction}`)
     if(!step.unchartedAction){
         throw new Error(`Uncharted step ${step.step} has no action`)
     }
-    await performUnchartedAction(step.unchartedAction)
+    return await performUnchartedAction(step.unchartedAction)
 }
 
+/**
+ * @returns what to add to the action's EXECUTE_DONE: {target}, the element the action was aimed at, described before it ran (see
+ * unchartedDescribeTarget), for the actions that have one; otherwise nothing.
+ */
 async function performUnchartedAction(action){
     console.log('[guidance.js] Performing uncharted action', action)
+    const target = unchartedActionTarget(action)
     switch(action.action){
         case "left_click":
             performUnchartedClicks(action, 1)
@@ -744,6 +750,76 @@ async function performUnchartedAction(action){
             break;
         default:
             throw new Error(`Unknown uncharted action: ${action.action}`)
+    }
+    return target ? {target: target} : {}
+}
+
+const UNCHARTED_TARGET_TEXT_LIMIT = 200 //Characters of a target's text reported to OdoBot.
+const UNCHARTED_TARGET_HTML_LIMIT = 2000 //Characters of a target's outerHTML reported to OdoBot.
+
+/**
+ * The element an action is aimed at, described before it runs: the element under the pointer for a click, the focused element for type
+ * and key. OdoBot uses it to tell which elements logUI does not record interactions with. Scrolls and waits have none.
+ * @returns the description, or null.
+ */
+function unchartedActionTarget(action){
+    try{
+        switch(action.action){
+            case "left_click":
+            case "double_click":
+            case "triple_click": {
+                const point = unchartedViewportPoint(action)
+                const hit = unchartedElementFromPoint(point.x, point.y)
+                return hit ? unchartedDescribeTarget(hit.element, 'point') : null
+            }
+            case "type":
+            case "key":
+                return unchartedDescribeTarget(unchartedActiveElement(), 'focus')
+            default:
+                return null
+        }
+    }catch(err){
+        //Describing the target must never keep the action from running.
+        console.warn('[guidance.js] Could not describe the target of an uncharted action', err)
+        return {error: err?.message ?? String(err)}
+    }
+}
+
+/**
+ * @param via how the element was found: 'point' (under the pointer) or 'focus' (the focused element).
+ * @returns the element's tag, identifying attributes, text, xpath and truncated outerHTML, and the same for the element a click on it
+ * focuses (its nearest focusable ancestor) when that is another element.
+ */
+function unchartedDescribeTarget(element, via){
+    if(!element){
+        return null
+    }
+    const description = unchartedDescribeElement(element)
+    description.via = via
+    description.inFrame = element.ownerDocument !== document
+    description.inShadowRoot = element.getRootNode() !== element.ownerDocument
+    const focusTarget = unchartedFocusTarget(element)
+    if(focusTarget && focusTarget !== element){
+        description.focusTarget = unchartedDescribeElement(focusTarget)
+    }
+    return description
+}
+
+function unchartedDescribeElement(element){
+    const text = (element.textContent ?? '').replace(/\s+/g, ' ').trim()
+    const html = element.outerHTML ?? ''
+    return {
+        tagName: element.tagName.toLowerCase(),
+        id: element.id || null,
+        className: element.getAttribute('class'),
+        role: element.getAttribute('role'),
+        type: element.getAttribute('type'),
+        name: element.getAttribute('name'),
+        href: element.getAttribute('href'),
+        text: text === '' ? null : text.substring(0, UNCHARTED_TARGET_TEXT_LIMIT),
+        xpath: getElementTreeXPath(element),
+        outerHTML: html.length > UNCHARTED_TARGET_HTML_LIMIT ? html.substring(0, UNCHARTED_TARGET_HTML_LIMIT) : html,
+        outerHTMLTruncated: html.length > UNCHARTED_TARGET_HTML_LIMIT
     }
 }
 

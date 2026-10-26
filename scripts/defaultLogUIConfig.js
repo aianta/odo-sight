@@ -21,10 +21,12 @@ const _defaultConfig = {
       pageResize: false
     },
     trackingConfiguration: {
-        'list-item-clicks': {
-          selector: 'li',
+        /* Clicks on any element. LogUI logs a click once, for the innermost element on its path that a click group
+         * tracks; with '*' that is the clicked element itself. */
+        'element-clicks': {
+          selector: '*',
           event: 'click',
-          name: 'LIST_ITEM_CLICK',
+          name: 'ELEMENT_CLICK',
           metadata: [
             {
               nameForLog: 'idAttribute',
@@ -48,128 +50,61 @@ const _defaultConfig = {
             }
           ]
         },
-        'link-clicks':{
-          selector: 'a',
+        /* Clicks not to log: on elements whose interaction is captured as another event (data entry into inputs and
+         * textareas, option selection in selects, the labels of such controls, typing in an inline TinyMCE editor).
+         * These groups keep the elements tracked for click, so the nearest '*' ancestor does not log the click
+         * instead, and LogUI skips groups with ignore: true. Submit and button inputs are left to '*'.
+         * Each selector is more specific than '*', which is how LogUI picks these groups over it. LogUI's specificity
+         * library throws on selectors containing a comma, so keep one selector per group. */
+        'ignore-input-clicks': {
+          selector: 'input:not([type="submit"]):not([type="button"])',
           event: 'click',
-          name: 'LINK_CLICK', 
-          metadata: [
-            {
-              nameForLog: 'idAttribute',
-              sourcer: 'elementAttribute',
-              lookFor: 'id'
-            },
-            {
-              nameForLog: 'className',
-              sourcer: 'elementProperty',
-              lookFor: 'className'
-            },
-            {
-              nameForLog: 'baseURI',
-              sourcer: 'elementProperty',
-              lookFor: 'baseURI'
-            },
-            {
-              nameForLog: 'nodeName',
-              sourcer: 'elementProperty',
-              lookFor: 'nodeName'
-            }
-          ]
+          ignore: true
         },
-        'span-clicks':{
-          selector: 'span',
+        'ignore-textarea-clicks': {
+          selector: 'textarea',
           event: 'click',
-          name: 'SPAN_CLICK', 
-          metadata: [
-            {
-              nameForLog: 'idAttribute',
-              sourcer: 'elementAttribute',
-              lookFor: 'id'
-            },
-            {
-              nameForLog: 'className',
-              sourcer: 'elementProperty',
-              lookFor: 'className'
-            },
-            {
-              nameForLog: 'baseURI',
-              sourcer: 'elementProperty',
-              lookFor: 'baseURI'
-            },
-            {
-              nameForLog: 'nodeName',
-              sourcer: 'elementProperty',
-              lookFor: 'nodeName'
-            }
-          ]
+          ignore: true
         },
-        'table-data-clicks': {
-          selector: 'td', 
+        'ignore-select-clicks': {
+          selector: 'select',
           event: 'click',
-          name: 'TD_CLICK',
-          metadata: [
-            {
-              nameForLog: 'idAttribute',
-              sourcer: 'elementAttribute',
-              lookFor: 'id'
-            },
-            {
-              nameForLog: 'className',
-              sourcer: 'elementProperty',
-              lookFor: 'className'
-            },
-            {
-              nameForLog: 'baseURI',
-              sourcer: 'elementProperty',
-              lookFor: 'baseURI'
-            },
-            {
-              nameForLog: 'nodeName',
-              sourcer: 'elementProperty',
-              lookFor: 'nodeName'
-            }
-          ]
+          ignore: true
         },
-        'button-clicks': {
-          selector: 'button',
+        'ignore-option-clicks': {
+          selector: 'option',
           event: 'click',
-          name: "BTN_CLICK",
-          metadata: [
-            {
-              nameForLog: 'idAttribute',
-              sourcer: 'elementAttribute',
-              lookFor: 'id'
-            },
-            {
-              nameForLog: 'buttonText',
-              sourcer: 'elementProperty',
-              lookFor: 'innerText'
-            },{
-              nameForLog: 'outerHTML',
-              sourcer: 'elementProperty',
-              lookFor: 'outerHTML'
-            }
-          ]
+          ignore: true
         },
-        'input-clicks': {
-          selector: 'input[type="submit"], input[type="button"]',
+        'ignore-optgroup-clicks': {
+          selector: 'optgroup',
           event: 'click',
-          name: "INPT_CLICK",
-          metadata: [
-            {
-              nameForLog: 'idAttribute',
-              sourcer: 'elementAttribute',
-              lookFor: 'id'
-            },
-            {
-              nameForLog: 'buttonText',
-              sourcer: 'elementProperty',
-              lookFor: 'innerText'
-            },{
-              nameForLog: 'outerHTML',
-              sourcer: 'elementProperty',
-              lookFor: 'outerHTML'
-            }
-          ]
+          ignore: true
+        },
+        /* Labels, and anything inside one. Clicking a label makes the browser click its control as well, and what the
+         * control does with that (the text entered, the box checked, the option chosen) is captured as that control's
+         * own event, so the label click would duplicate the interaction. A label with no control does nothing on click.
+         * 'label *' includes links inside a label (e.g. a terms link in a consent checkbox's label); their clicks are
+         * not logged either. */
+        'ignore-label-clicks': {
+          selector: 'label',
+          event: 'click',
+          ignore: true
+        },
+        'ignore-label-content-clicks': {
+          selector: 'label *',
+          event: 'click',
+          ignore: true
+        },
+        'ignore-tinymce-body-clicks': {
+          selector: '.mce-content-body',
+          event: 'click',
+          ignore: true
+        },
+        'ignore-tinymce-content-clicks': {
+          selector: '.mce-content-body *',
+          event: 'click',
+          ignore: true
         },
         'select-data': {
           selector: 'select',
